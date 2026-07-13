@@ -1,0 +1,289 @@
+{
+  "common": {
+    "back": "Retour",
+    "continue": "Continuer",
+    "skip": "Passer cette question",
+    "saveLater": "Sauvegarder et continuer plus tard",
+    "yes": "Oui",
+    "no": "Non",
+    "notSure": "Pas sûr",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "reclassify": "Reclasser",
+    "addExpense": "Ajouter dépense",
+    "save": "Sauvegarder",
+    "cancel": "Annuler",
+    "error": "Erreur",
+    "loading": "Chargement...",
+    "finish": "Terminer",
+    "notes": "Détails ou explications écrites facultatifs..."
+  },
+  "welcome": {
+    "title": "Bienvenue sur FinPath",
+    "subtitle": "Votre compagnon d'épargne et de finances personnelles propulsé par l'IA",
+    "description": "FinPath n'est pas un simple suivi de dépenses. Nous apprenons à vous connaître, comprenons votre situation de vie et créons un parcours financier réaliste et honnête qui fonctionne vraiment.",
+    "getStarted": "Commencer",
+    "signIn": "J'ai déjà un compte",
+    "privacyNotice": "Vos données sont privées et stockées de manière sécurisée. Le traitement par l'IA est anonymisé."
+  },
+  "auth": {
+    "title": "Accès FinPath",
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "email": "Adresse email",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "or": "ou",
+    "needAccount": "Pas de compte ? S'inscrire",
+    "haveAccount": "Déjà un compte ? Se connecter",
+    "mockLogin": "Accéder à l'intégration (Mock)"
+  },
+  "onboarding": {
+    "progress": "Question {{current}} sur {{total}}",
+    "reviewTitle": "Vérifier les informations",
+    "reviewSubtitle": "Veuillez vérifier et confirmer vos détails. Nous les utilisons pour calculer votre plan.",
+    "generatePlan": "Générer le plan financier",
+    "essentialTitle": "Dépenses essentielles",
+    "essentialSubtitle": "Ce sont les dépenses identifiées comme indispensables à votre vie quotidienne et à votre sécurité. Vous pouvez les ajuster.",
+    "sections": {
+      "personal": "Profil personnel",
+      "income": "Revenus",
+      "housing": "Logement",
+      "family": "Famille & Soutien",
+      "vehicle": "Véhicule",
+      "healthcare": "Santé",
+      "debt": "Dettes",
+      "bills": "Factures mensuelles",
+      "annual": "Dépenses annuelles",
+      "habits": "Habitudes de dépenses",
+      "cultural": "Préférences culturelles"
+    },
+    "questions": {
+      "preferredName": {
+        "title": "Comment devrions-nous vous appeler ?",
+        "subtitle": "Nous souhaitons nous adresser à vous personnellement."
+      },
+      "country": {
+        "title": "Dans quel pays vivez-vous ?",
+        "subtitle": "Cela nous aide à suggérer les bons événements culturels et règles fiscales."
+      },
+      "city": {
+        "title": "Dans quelle ville vivez-vous ?",
+        "subtitle": "Utilisé pour l'estimation des coûts régionaux."
+      },
+      "currency": {
+        "title": "Quelle devise utilisez-vous ?",
+        "subtitle": "Choisissez votre devise de transaction principale."
+      },
+      "ageRange": {
+        "title": "Quelle est votre tranche d'âge ?",
+        "subtitle": "Utilisé pour la planification des étapes de vie."
+      },
+      "employmentStatus": {
+        "title": "Quel est votre statut professionnel actuel ?",
+        "subtitle": "Aide à déterminer la stabilité de vos revenus."
+      },
+      "hasIncome": {
+        "title": "Percevez-vous actuellement un revenu ?",
+        "subtitle": "Cela comprend salaires, freelance, entreprise ou aides."
+      },
+      "mainIncome": {
+        "title": "Quel est votre revenu mensuel principal ?",
+        "subtitle": "Saisissez votre montant net mensuel perçu."
+      },
+      "incomeFrequency": {
+        "title": "À quelle fréquence recevez-vous ce revenu ?",
+        "subtitle": "Sélectionnez la fréquence de paiement."
+      },
+      "incomeType": {
+        "title": "Ce revenu est-il fixe ou irrégulier ?",
+        "subtitle": "Fixe signifie un salaire stable ; irrégulier signifie freelance, saisonnier, etc."
+      },
+      "hasSecondIncome": {
+        "title": "Avez-vous une deuxième source de revenus ?",
+        "subtitle": "Tout emploi secondaire, loyer ou activité complémentaire."
+      },
+      "secondIncome": {
+        "title": "Quel est le montant de votre deuxième revenu ?",
+        "subtitle": "Montant net mensuel."
+      },
+      "secondIncomeSource": {
+        "title": "Quelle est la source de ce deuxième revenu ?",
+        "subtitle": "Exemple: Freelance, loyer, temps partiel."
+      },
+      "hasRent": {
+        "title": "Payez-vous un loyer ?",
+        "subtitle": "Sélectionnez oui si vous êtes locataire."
+      },
+      "hasMortgage": {
+        "title": "Avez-vous un emprunt immobilier ?",
+        "subtitle": "Sélectionnez oui si vous achetez votre logement."
+      },
+      "housingAmount": {
+        "title": "Quel est le coût mensuel de votre logement ?",
+        "subtitle": "Entrez votre loyer ou votre mensualité de prêt."
+      },
+      "shareHousing": {
+        "title": "Partagez-vous les frais de logement ?",
+        "subtitle": "Divisez-vous le loyer/crédit avec un conjoint ou un colocataire ?"
+      },
+      "supportOtherHousehold": {
+        "title": "Soutenez-vous financièrement un autre foyer ?",
+        "subtitle": "Par exemple, envoyer de l'argent à des parents vivant ailleurs."
+      },
+      "isMarried": {
+        "title": "Êtes-vous marié(e) ?",
+        "subtitle": "Utilisé pour évaluer les facteurs de coûts partagés."
+      },
+      "hasChildren": {
+        "title": "Avez-vous des enfants ?",
+        "subtitle": "Sélectionnez oui si vous avez des personnes à charge."
+      },
+      "numChildren": {
+        "title": "Combien d'enfants avez-vous ?",
+        "subtitle": "Enfants à votre charge."
+      },
+      "schoolFees": {
+        "title": "Payez-vous des frais de scolarité pour vos enfants ?",
+        "subtitle": "Saisissez les frais de scolarité ou d'inscription mensuels totaux."
+      },
+      "childcareExpenses": {
+        "title": "Payez-vous pour la garde d'enfants ou la crèche ?",
+        "subtitle": "Dépenses mensuelles de garde d'enfants."
+      },
+      "supportRelatives": {
+        "title": "Soutenez-vous des parents ou d'autres membres de votre famille ?",
+        "subtitle": "Soutien financier régulier pour la famille élargie."
+      },
+      "hasVehicle": {
+        "title": "Possédez-vous ou utilisez-vous régulièrement une voiture ou moto ?",
+        "subtitle": "Sélectionnez le statut de votre véhicule."
+      },
+      "vehicleFinancing": {
+        "title": "Avez-vous un financement ou crédit pour ce véhicule ?",
+        "subtitle": "Sélectionnez oui si vous remboursez le véhicule."
+      },
+      "vehiclePayment": {
+        "title": "Quelle est la mensualité de crédit du véhicule ?",
+        "subtitle": "Entrez le montant du financement."
+      },
+      "fuelSpending": {
+        "title": "Quel est votre budget mensuel de carburant ?",
+        "subtitle": "Essence, diesel ou frais de recharge."
+      },
+      "vehicleInsurance": {
+        "title": "Payez-vous une assurance véhicule annuelle ?",
+        "subtitle": "Prime d'assurance payée annuellement ou semestriellement."
+      },
+      "insuranceAmount": {
+        "title": "Quel est le montant annuel de l'assurance ?",
+        "subtitle": "Montant total de la prime payée."
+      },
+      "insuranceDate": {
+        "title": "Quand devez-vous payer votre prochaine assurance ?",
+        "subtitle": "Cela nous aide à calculer le temps disponible pour épargner."
+      },
+      "roadTax": {
+        "title": "Payez-vous une taxe routière annuelle / vignette ?",
+        "subtitle": "Taxe automobile annuelle gouvernementale."
+      },
+      "taxAmount": {
+        "title": "Quel est le montant de votre taxe routière annuelle ?",
+        "subtitle": "Valeur de la taxe."
+      },
+      "vehicleMaintenance": {
+        "title": "Quel est votre budget mensuel d'entretien ?",
+        "subtitle": "Réparations, lavage, révisions."
+      },
+      "medicationExpenses": {
+        "title": "Avez-vous des dépenses de médicaments régulières ?",
+        "subtitle": "Coût mensuel des médicaments essentiels."
+      },
+      "healthInsurance": {
+        "title": "Payez-vous une assurance santé ?",
+        "subtitle": "Cotisations d'assurance santé ou mutuelle privée."
+      },
+      "medicalAppointments": {
+        "title": "Avez-vous des rendez-vous médicaux récurrents ?",
+        "subtitle": "Thérapie, kinésithérapie, spécialistes."
+      },
+      "supportOtherHealthcare": {
+        "title": "Soutenez-vous les frais de santé d'une autre personne ?",
+        "subtitle": "Paiement de frais médicaux pour des parents, enfants, etc."
+      },
+      "hasDebt": {
+        "title": "Avez-vous actuellement des dettes ?",
+        "subtitle": "Cartes de crédit, prêts personnels, crédit conso (hors immobilier/auto)."
+      },
+      "debts": {
+        "title": "Liste des dettes",
+        "subtitle": "Ajoutez vos dettes actives."
+      },
+      "electricity": {
+        "title": "Quelle est votre facture d'électricité mensuelle moyenne ?",
+        "subtitle": "Dépenses d'électricité."
+      },
+      "water": {
+        "title": "Quelle est votre facture d'eau mensuelle moyenne ?",
+        "subtitle": "Dépenses d'eau."
+      },
+      "internet": {
+        "title": "Quel est votre abonnement internet mensuel ?",
+        "subtitle": "Ligne haut débit à la maison."
+      },
+      "phone": {
+        "title": "Quel est votre forfait mobile mensuel ?",
+        "subtitle": "Abonnement appels et données."
+      },
+      "subscriptions": {
+        "title": "Quel est le coût total de vos abonnements mensuels ?",
+        "subtitle": "Streaming, salle de sport, logiciels, etc."
+      },
+      "groceries": {
+        "title": "Quel est votre budget mensuel estimé pour les courses ?",
+        "subtitle": "Nourriture essentielle et produits ménagers."
+      },
+      "otherBills": {
+        "title": "Quel est le total de vos autres factures récurrentes ?",
+        "subtitle": "Tous les autres paiements récurrents."
+      },
+      "annualBills": {
+        "title": "Avez-vous d'autres factures annuelles ou occasionnelles ?",
+        "subtitle": "Exemples : frais de scolarité, taxe foncière, contrôles médicaux."
+      },
+      "spendingHabits": {
+        "title": "Revue respectueuse des habitudes de dépenses",
+        "subtitle": "Nous ne portons pas de jugement. Il s'agit de comprendre les domaines à optimiser."
+      },
+      "culturalPref": {
+        "title": "Religion & Préférences Culturelles (Facultatif)",
+        "subtitle": "Utilisé uniquement pour suggérer des événements futurs (ex: Ramadan, Aïd). Vous pouvez passer cette question."
+      }
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "detailsTitle": "Détails du compte",
+    "detailsSubtitle": "Vos informations de profil",
+    "country": "Pays",
+    "city": "Ville",
+    "currency": "Devise principale",
+    "ageRange": "Tranche d'âge",
+    "settingsTitle": "Paramètres",
+    "settingsSubtitle": "Préférences de l'application",
+    "language": "Langue",
+    "languageSubtext": "Choisissez votre langue préférée",
+    "debtTracker": "Suivi des dettes",
+    "debtTrackerSubtext": "Gérer vos passifs",
+    "security": "Sécurité et confidentialité",
+    "securitySubtext": "Gérer les clés et les accès",
+    "support": "Aide et support",
+    "supportSubtext": "Obtenir de l'aide",
+    "resetBtn": "Réinitialiser les données",
+    "resetConfirmTitle": "Réinitialiser les données",
+    "resetConfirmMessage": "Cela effacera toutes vos réponses d'intégration, transactions et objectifs. Cette action est irréversible.",
+    "resetConfirmReset": "Tout réinitialiser",
+    "resetConfirmCancel": "Annuler"
+  }
+}

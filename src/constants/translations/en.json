@@ -1,0 +1,289 @@
+{
+  "common": {
+    "back": "Back",
+    "continue": "Continue",
+    "skip": "Skip this question",
+    "saveLater": "Save & continue later",
+    "yes": "Yes",
+    "no": "No",
+    "notSure": "Not sure",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "reclassify": "Reclassify",
+    "addExpense": "Add Expense",
+    "save": "Save",
+    "cancel": "Cancel",
+    "error": "Error",
+    "loading": "Loading...",
+    "finish": "Finish",
+    "notes": "Optional written details/explanation..."
+  },
+  "welcome": {
+    "title": "Welcome to FinPath",
+    "subtitle": "Your AI-Powered Personal Finance & Savings Companion",
+    "description": "FinPath is not a generic expense tracker. We interview you, understand your complete life situation, and build a realistic, honest financial path that actually works.",
+    "getStarted": "Get Started",
+    "signIn": "I already have an account",
+    "privacyNotice": "Your data is private and stored securely. AI processing is anonymized."
+  },
+  "auth": {
+    "title": "FinPath Access",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "email": "Email Address",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "or": "or",
+    "needAccount": "Don't have an account? Sign Up",
+    "haveAccount": "Already have an account? Sign In",
+    "mockLogin": "Enter Onboarding (Mock Auth)"
+  },
+  "onboarding": {
+    "progress": "Question {{current}} of {{total}}",
+    "reviewTitle": "Review Information",
+    "reviewSubtitle": "Please review and confirm your details. We use this to calculate your plan.",
+    "generatePlan": "Generate Financial Plan",
+    "essentialTitle": "Essential Expenses",
+    "essentialSubtitle": "These are the expenses identified as essential to your survival and safety. You can adjust them.",
+    "sections": {
+      "personal": "Personal Profile",
+      "income": "Income",
+      "housing": "Housing",
+      "family": "Family & Support",
+      "vehicle": "Vehicle",
+      "healthcare": "Healthcare",
+      "debt": "Debts",
+      "bills": "Monthly Bills",
+      "annual": "Annual Expenses",
+      "habits": "Spending Habits",
+      "cultural": "Cultural Preferences"
+    },
+    "questions": {
+      "preferredName": {
+        "title": "What should we call you?",
+        "subtitle": "We want to address you personally."
+      },
+      "country": {
+        "title": "Which country do you live in?",
+        "subtitle": "This helps us suggest correct cultural events and tax rules."
+      },
+      "city": {
+        "title": "Which city do you live in?",
+        "subtitle": "Used for regional cost estimation."
+      },
+      "currency": {
+        "title": "Which currency do you use?",
+        "subtitle": "Choose your primary transaction currency."
+      },
+      "ageRange": {
+        "title": "What is your age range?",
+        "subtitle": "Used for planning milestones."
+      },
+      "employmentStatus": {
+        "title": "What is your current employment status?",
+        "subtitle": "Helps determine income stability."
+      },
+      "hasIncome": {
+        "title": "Do you currently receive income?",
+        "subtitle": "This includes salaries, freelance, business, or support."
+      },
+      "mainIncome": {
+        "title": "What is your main monthly income?",
+        "subtitle": "Enter your net take-home monthly amount."
+      },
+      "incomeFrequency": {
+        "title": "How often do you receive this income?",
+        "subtitle": "Select the payment frequency."
+      },
+      "incomeType": {
+        "title": "Is this income fixed or irregular?",
+        "subtitle": "Fixed means stable salary; irregular means freelance, seasonal, etc."
+      },
+      "hasSecondIncome": {
+        "title": "Do you have a second source of income?",
+        "subtitle": "Any secondary job, rent, or side hustle."
+      },
+      "secondIncome": {
+        "title": "What is your monthly second income amount?",
+        "subtitle": "Net monthly amount."
+      },
+      "secondIncomeSource": {
+        "title": "What is the source of your second income?",
+        "subtitle": "Example: Freelance, rent, part-time."
+      },
+      "hasRent": {
+        "title": "Do you pay rent?",
+        "subtitle": "Select yes if you lease your home."
+      },
+      "hasMortgage": {
+        "title": "Do you have a mortgage?",
+        "subtitle": "Select yes if you are buying your home."
+      },
+      "housingAmount": {
+        "title": "What is your monthly housing payment?",
+        "subtitle": "Enter your rent or mortgage monthly cost."
+      },
+      "shareHousing": {
+        "title": "Do you share housing costs?",
+        "subtitle": "Do you divide rent/mortgage with a partner or flatmate?"
+      },
+      "supportOtherHousehold": {
+        "title": "Do you financially support another household?",
+        "subtitle": "For example, sending money to parents or relatives in a different home."
+      },
+      "isMarried": {
+        "title": "Are you married?",
+        "subtitle": "Used to evaluate joint cost factors."
+      },
+      "hasChildren": {
+        "title": "Do you have children?",
+        "subtitle": "Select yes if you have dependents."
+      },
+      "numChildren": {
+        "title": "How many children do you have?",
+        "subtitle": "Dependents under your care."
+      },
+      "schoolFees": {
+        "title": "Do you pay school fees for children?",
+        "subtitle": "Enter the total monthly school or tuition fees."
+      },
+      "childcareExpenses": {
+        "title": "Do you pay for childcare or nursery?",
+        "subtitle": "Total monthly childcare expenses."
+      },
+      "supportRelatives": {
+        "title": "Do you support parents or other relatives?",
+        "subtitle": "Regular financial support for extended family."
+      },
+      "hasVehicle": {
+        "title": "Do you own or regularly use a car or motorcycle?",
+        "subtitle": "Select your vehicle status."
+      },
+      "vehicleFinancing": {
+        "title": "Do you have vehicle financing or a car loan?",
+        "subtitle": "Select yes if you are paying off the vehicle."
+      },
+      "vehiclePayment": {
+        "title": "What is your monthly vehicle loan payment?",
+        "subtitle": "Enter the financing amount."
+      },
+      "fuelSpending": {
+        "title": "What is your estimated monthly fuel spending?",
+        "subtitle": "Gas, diesel, or charging costs."
+      },
+      "vehicleInsurance": {
+        "title": "Do you pay annual vehicle insurance?",
+        "subtitle": "Insurance premium paid annually or semi-annually."
+      },
+      "insuranceAmount": {
+        "title": "What is your annual vehicle insurance amount?",
+        "subtitle": "Total premium paid."
+      },
+      "insuranceDate": {
+        "title": "When is your next insurance payment due?",
+        "subtitle": "This helps us calculate savings preparation time."
+      },
+      "roadTax": {
+        "title": "Do you pay annual road tax / vignette?",
+        "subtitle": "Annual government vehicle tax."
+      },
+      "taxAmount": {
+        "title": "What is your annual road tax amount?",
+        "subtitle": "Road tax value."
+      },
+      "vehicleMaintenance": {
+        "title": "What is your expected monthly maintenance spending?",
+        "subtitle": "Repairs, washing, servicing."
+      },
+      "medicationExpenses": {
+        "title": "Do you have regular medication expenses?",
+        "subtitle": "Monthly cost of necessary medications."
+      },
+      "healthInsurance": {
+        "title": "Do you pay health insurance?",
+        "subtitle": "Private health insurance premiums."
+      },
+      "medicalAppointments": {
+        "title": "Do you have recurring medical appointments?",
+        "subtitle": "Therapy, physiotherapy, specialist appointments."
+      },
+      "supportOtherHealthcare": {
+        "title": "Do you support another person's healthcare expenses?",
+        "subtitle": "Paying medical bills for parents, children, etc."
+      },
+      "hasDebt": {
+        "title": "Do you currently have debt?",
+        "subtitle": "Credit cards, personal loans, consumer credit (excluding mortgage/car loan)."
+      },
+      "debts": {
+        "title": "Debts List",
+        "subtitle": "Add your active debts."
+      },
+      "electricity": {
+        "title": "What is your average monthly electricity bill?",
+        "subtitle": "Power utility expenses."
+      },
+      "water": {
+        "title": "What is your average monthly water bill?",
+        "subtitle": "Water utility expenses."
+      },
+      "internet": {
+        "title": "What is your monthly internet bill?",
+        "subtitle": "Home broadband connections."
+      },
+      "phone": {
+        "title": "What is your monthly mobile phone bill?",
+        "subtitle": "Call and data subscriptions."
+      },
+      "subscriptions": {
+        "title": "What is your total monthly subscriptions cost?",
+        "subtitle": "Streaming, gym, software, etc."
+      },
+      "groceries": {
+        "title": "What is your estimated monthly groceries budget?",
+        "subtitle": "Essential food and household supplies."
+      },
+      "otherBills": {
+        "title": "What is your total other monthly recurring bills?",
+        "subtitle": "Any other recurring payments."
+      },
+      "annualBills": {
+        "title": "Do you have other annual or occasional bills?",
+        "subtitle": "Examples: school registration, property tax, maintenance, checkups."
+      },
+      "spendingHabits": {
+        "title": "Respectful Review of Spending Habits",
+        "subtitle": "We do not judge. This is to understand areas you wish to improve."
+      },
+      "culturalPref": {
+        "title": "Religion & Cultural Preferences (Optional)",
+        "subtitle": "This is only used to suggest important future events (e.g. Ramadan, Eid). You can skip this question."
+      }
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "detailsTitle": "Account Details",
+    "detailsSubtitle": "Your profile information",
+    "country": "Country",
+    "city": "City",
+    "currency": "Primary Currency",
+    "ageRange": "Age Range",
+    "settingsTitle": "Settings",
+    "settingsSubtitle": "App preferences",
+    "language": "Language",
+    "languageSubtext": "Choose your preferred language",
+    "debtTracker": "Debt Tracker",
+    "debtTrackerSubtext": "Manage your liabilities",
+    "security": "Security & Privacy",
+    "securitySubtext": "Manage keys and access",
+    "support": "Help & Support",
+    "supportSubtext": "Get assistance",
+    "resetBtn": "Reset Onboarding Data",
+    "resetConfirmTitle": "Reset App Data",
+    "resetConfirmMessage": "This will erase all your onboarding answers, transactions, and custom goals. This action cannot be undone.",
+    "resetConfirmReset": "Reset Everything",
+    "resetConfirmCancel": "Cancel"
+  }
+}
