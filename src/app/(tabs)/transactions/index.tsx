@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useOnboardingStore } from '../../../store/onboardingStore';
+import { useTransactionsStore } from '../../../store/transactionsStore';
 import { formatCurrency } from '../../../utils/currency';
 import { parseQuickEntry } from '../../../utils/nlpParser';
 
@@ -32,23 +34,55 @@ export default function TransactionsScreen() {
   const { answers } = useOnboardingStore();
   const currencySymbol = answers['currency'] || 'MAD';
 
-  const [transactions, setTransactions] = useState<TransactionItem[]>([
-    { id: '1', name: 'Grocery Store', amount: 450, type: 'essential', category: 'Essential', date: '09:41 AM', timeGroup: 'Today' },
-    { id: '2', name: "L'Hote Cafe", amount: 35, type: 'flexible', category: 'Lifestyle', date: '08:15 AM', timeGroup: 'Today' },
-    { id: '3', name: 'Salary Deposit', amount: 15000, type: 'income', category: 'Income', date: '03:00 PM', timeGroup: 'Yesterday' },
-    { id: '4', name: 'Rent Payment', amount: 2500, type: 'essential', category: 'Essential', date: '10:00 AM', timeGroup: 'Yesterday' },
-    { id: '5', name: 'Shell Gas Station', amount: 320, type: 'essential', category: 'Transport', date: '07:45 AM', timeGroup: 'Yesterday' },
-  ]);
+  // Transactions store
+  const {
+    transactions: storedTransactions,
+    addTransaction,
+    removeTransaction,
+    updateTransaction,
+  } = useTransactionsStore();
 
+  // Local state for UI (form values, filters, etc.)
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'income' | 'essential' | 'flexible' | 'debt' | 'savings'>('flexible');
   const [category, setCategory] = useState('Groceries');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'essential' | 'flexible'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'essential' | 'flexible' | 'debt' | 'savings'>('all');
   const [quickInput, setQuickInput] = useState('');
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+
+  const params = useLocalSearchParams<{ openForm?: string; actionType?: string }>();
+
+  // Open the add/edit transaction drawer when navigated with URL query params
+  React.useEffect(() => {
+    if (params.openForm === 'true') {
+      setShowForm(true);
+      if (params.actionType) {
+        setType(params.actionType as any);
+        if (params.actionType === 'income') {
+          setActiveTab('income');
+        } else {
+          setActiveTab('expense');
+        }
+      }
+    }
+  }, [params.openForm, params.actionType]);
+
+  // Populate form when editing a transaction
+  React.useEffect(() => {
+    if (editingTransactionId) {
+      const transaction = storedTransactions.find(t => t.id === editingTransactionId);
+      if (transaction) {
+        setName(transaction.name);
+        setAmount(transaction.amount.toString());
+        setType(transaction.type);
+        setCategory(transaction.category);
+      }
+    }
+  }, [editingTransactionId, storedTransactions]);
 
   const handleQuickAdd = () => {
     const parsed = parseQuickEntry(quickInput);
@@ -57,17 +91,17 @@ export default function TransactionsScreen() {
       return;
     }
 
-    const newTx: TransactionItem = {
-      id: Math.random().toString(36).substr(2, 9),
+    const now = new Date();
+const newTx: Omit<TransactionItem, 'id'> = {
       name: parsed.name,
       amount: parsed.amount,
       type: parsed.type,
       category: parsed.category,
-      date: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      timeGroup: 'Today',
+      date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeGroup: now.toLocaleDateString('en-US', { month: 'short' }),
     };
 
-    setTransactions([newTx, ...transactions]);
+    addTransaction(newTx);
     setQuickInput('');
   };
 
@@ -82,28 +116,43 @@ export default function TransactionsScreen() {
       return;
     }
 
-    const newTx: TransactionItem = {
-      id: Math.random().toString(36).substr(2, 9),
+    const now = new Date();
+    const txData = {
       name,
       amount: amt,
       type,
       category,
-      date: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      timeGroup: 'Today',
+      date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeGroup: now.toLocaleDateString('en-US', { month: 'short' }),
     };
 
-    setTransactions([newTx, ...transactions]);
+    if (editingTransactionId) {
+      // Update existing transaction
+      updateTransaction(editingTransactionId, txData);
+      setEditingTransactionId(null);
+    } else {
+      // Add new transaction
+      addTransaction(txData);
+    }
+
     setName('');
     setAmount('');
     setShowForm(false);
   };
 
   const handleDeleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((tx) => tx.id !== id));
+    Alert.alert(
+      'Delete Transaction',
+      'Are you sure you want to delete this transaction?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => removeTransaction(id) }
+      ]
+    );
   };
 
-  const filteredTransactions = transactions.filter((tx) => {
-    const matchesSearch = tx.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredTransactions = storedTransactions.filter((tx) => {
+    const matchesSearch = tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           tx.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'expense' ? tx.type !== 'income' : tx.type === 'income';
     const matchesFilter = selectedFilter === 'all' || tx.type === selectedFilter;
@@ -141,11 +190,14 @@ export default function TransactionsScreen() {
     }
   };
 
-  const groupedTransactions = filteredTransactions.reduce((acc, tx) => {
-    if (!acc[tx.timeGroup]) acc[tx.timeGroup] = [];
-    acc[tx.timeGroup].push(tx);
-    return acc;
-  }, {} as Record<string, TransactionItem[]>);
+  // Group transactions by timeGroup for display
+  const groupedTransactions = useMemo(() => {
+    return filteredTransactions.reduce((acc, tx) => {
+      if (!acc[tx.timeGroup]) acc[tx.timeGroup] = [];
+      acc[tx.timeGroup].push(tx);
+      return acc;
+    }, {} as Record<string, TransactionItem[]>);
+  }, [filteredTransactions]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -211,13 +263,13 @@ export default function TransactionsScreen() {
         {/* Form */}
         {showForm && (
           <Card style={styles.formDrawer}>
-            <Text style={styles.formTitle}>Add Transaction</Text>
+            <Text style={styles.formTitle}>{editingTransactionId ? 'Edit Transaction' : 'Add Transaction'}</Text>
             <Input label="Name" value={name} onChangeText={setName} placeholder="e.g. Electric Bill" />
             <Input label={`Amount (${currencySymbol})`} value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="numeric" />
-            
+
             <Text style={styles.label}>Type</Text>
             <View style={styles.typesRow}>
-              {['income', 'essential', 'flexible'].map((tType) => (
+              {['income', 'essential', 'flexible', 'debt', 'savings'].map((tType) => (
                 <TouchableOpacity
                   key={tType}
                   style={[styles.typeButton, type === tType && styles.typeButtonActive]}
@@ -231,7 +283,7 @@ export default function TransactionsScreen() {
             </View>
 
             <Input label="Category" value={category} onChangeText={setCategory} placeholder="e.g. Utilities, Salary" />
-            
+
             <Button title="Save Transaction" onPress={handleAddTransaction} variant="primary" style={styles.saveBtn} />
           </Card>
         )}
@@ -255,7 +307,7 @@ export default function TransactionsScreen() {
         {/* Filter Chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
           <View style={styles.chipRow}>
-            {['all', 'income', 'essential', 'flexible'].map((tab) => (
+            {['all', 'income', 'essential', 'flexible', 'debt', 'savings'].map((tab) => (
               <TouchableOpacity
                 key={tab}
                 style={[styles.chip, selectedFilter === tab && styles.chipActive]}
@@ -531,22 +583,6 @@ const styles = StyleSheet.create({
   txMeta: {
     flex: 1,
   },
-  txMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginTop: 2,
-  },
-  categoryChip: {
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
-    borderRadius: RADIUS.xs,
-  },
-  categoryChipText: {
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
   txName: {
     ...TYPOGRAPHY.bodySemiBold,
     color: COLORS.textPrimary,
@@ -573,5 +609,21 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     padding: SPACING.xs,
+  },
+  txMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: 2,
+  },
+  categoryChip: {
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: RADIUS.xs,
+  },
+  categoryChipText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });

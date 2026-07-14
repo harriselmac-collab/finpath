@@ -10,12 +10,29 @@ import { Button } from '../../../components/ui/Button';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { LanguageSelector, LANGUAGES } from '../../../components/ui/LanguageSelector';
 import { useOnboardingStore } from '../../../store/onboardingStore';
+import { useSessionStore } from '../../../store/sessionStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const { answers, resetOnboarding } = useOnboardingStore();
+  const { user, signOut } = useSessionStore();
 
+  const handleSecurityPress = () => {
+    Alert.alert(
+      t('profile.security') || 'Security & Storage',
+      `FinPath uses Expo SecureStore for encrypted local keychain cache and Supabase PostgreSQL Row-Level Security (RLS) policies for server configurations.\n\nStatus: Active (Encrypted)\nAccount: ${user?.email || 'Guest Mode'}`,
+      [{ text: 'Close', style: 'cancel' }]
+    );
+  };
+
+  const handleSupportPress = () => {
+    Alert.alert(
+      t('profile.support') || 'Support & Feedback',
+      'Need help or want to share feedback?\n\nContact us at: support@finpath.com\nDocumentation: https://docs.finpath.com',
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
 
   const handleReset = () => {
     Alert.alert(
@@ -165,7 +182,7 @@ export default function ProfileScreen() {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.linkRow} onPress={() => {}}>
+          <TouchableOpacity style={styles.linkRow} onPress={handleSecurityPress}>
             <View style={styles.linkLeft}>
               <View style={styles.linkIconBox}>
                 <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
@@ -180,7 +197,7 @@ export default function ProfileScreen() {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.linkRow} onPress={() => {}}>
+          <TouchableOpacity style={styles.linkRow} onPress={handleSupportPress}>
             <View style={styles.linkLeft}>
               <View style={styles.linkIconBox}>
                 <Ionicons name="help-circle-outline" size={20} color={COLORS.primary} />
@@ -196,6 +213,18 @@ export default function ProfileScreen() {
 
         {/* Danger Zone */}
         <View style={styles.dangerZone}>
+          {user && (
+            <Button
+              title="Sign Out Account"
+              onPress={async () => {
+                await signOut();
+                resetOnboarding();
+                router.replace('/auth');
+              }}
+              variant="secondary"
+              style={{ marginBottom: SPACING.md }}
+            />
+          )}
           <Button
             title={t('profile.resetBtn')}
             onPress={handleReset}

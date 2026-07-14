@@ -7,29 +7,73 @@ import { Card } from '../../../components/ui/Card';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { useOnboardingStore } from '../../../store/onboardingStore';
+import { useTransactionsStore } from '../../../store/transactionsStore';
 import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
 import { formatCurrency } from '../../../utils/currency';
 import { SavingsProjectionChart, DebtPaydownChart } from '../../../components/ui/TrajectoryChart';
 
 export default function PlanScreen() {
   const { answers, debts } = useOnboardingStore();
+  const { transactions } = useTransactionsStore();
 
   const currencySymbol = answers['currency'] || 'MAD';
 
   const profile = calculateFinancialProfile({ answers, debts });
 
+  // Calculate actual spending from transactions for each budget category
+  const calculateActualSpending = () => {
+    // Group: Housing
+    const housingCategories = ['Housing', 'Mortgage', 'Rent'];
+    const housingActual = transactions
+      .filter(t => t.type === 'essential' && housingCategories.includes(t.category))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Group: Groceries & Essentials
+    const groceriesEssentialsCategories = ['Groceries', 'Food', 'Snacks', 'Beverages', 'Household Essentials', 'Personal Care'];
+    const groceriesEssentialsActual = transactions
+      .filter(t => t.type === 'essential' && groceriesEssentialsCategories.includes(t.category))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Group: Utilities & Phone
+    const utilitiesPhoneCategories = ['Utilities', 'Electricity', 'Water', 'Internet', 'Phone', 'Gas', 'Trash', 'Sewer'];
+    const utilitiesPhoneActual = transactions
+      .filter(t => t.type === 'essential' && utilitiesPhoneCategories.includes(t.category))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Group: Healthcare & Medication
+    const healthcareCategories = ['Healthcare', 'Medication', 'Doctor', 'Dental', 'Vision', 'Insurance', 'Pharmacy', 'Medical Supplies'];
+    const healthcareActual = transactions
+      .filter(t => t.type === 'essential' && healthcareCategories.includes(t.category))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Group: Debt Services (transactions with type 'debt')
+    const debtActual = transactions
+      .filter(t => t.type === 'debt')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return {
+      housing: housingActual,
+      groceriesEssentials: groceriesEssentialsActual,
+      utilitiesPhone: utilitiesPhoneActual,
+      healthcare: healthcareActual,
+      debt: debtActual,
+    };
+  };
+
+  const actualSpending = calculateActualSpending();
+
   const budgetCategories = [
     {
       name: 'Housing',
       planned: Number(answers.housingAmount || 0),
-      actual: Number(answers.housingAmount || 0),
+      actual: actualSpending.housing,
       color: COLORS.primary,
       icon: 'home-outline',
     },
     {
       name: 'Groceries & Essentials',
       planned: Number(answers.groceries || 0),
-      actual: Math.round(Number(answers.groceries || 0) * 0.85),
+      actual: actualSpending.groceriesEssentials,
       color: COLORS.emerald,
       icon: 'cart-outline',
     },
@@ -40,11 +84,7 @@ export default function PlanScreen() {
         Number(answers.water || 0) +
         Number(answers.internet || 0) +
         Number(answers.phone || 0),
-      actual:
-        Number(answers.electricity || 0) +
-        Number(answers.water || 0) +
-        Number(answers.internet || 0) +
-        Number(answers.phone || 0),
+      actual: actualSpending.utilitiesPhone,
       color: COLORS.secondary,
       icon: 'flash-outline',
     },
@@ -55,16 +95,14 @@ export default function PlanScreen() {
         Number(answers.healthInsurance || 0) +
         Number(answers.medicalAppointments || 0) +
         Number(answers.supportOtherHealthcare || 0),
-      actual:
-        Number(answers.medicationExpenses || 0) +
-        Number(answers.healthInsurance || 0),
+      actual: actualSpending.healthcare,
       color: COLORS.error,
       icon: 'medical-outline',
     },
     {
       name: 'Debt Services',
       planned: profile.minimumMonthlyDebtPayments,
-      actual: profile.minimumMonthlyDebtPayments,
+      actual: actualSpending.debt,
       color: COLORS.warning,
       icon: 'card-outline',
     },
@@ -118,8 +156,11 @@ export default function PlanScreen() {
             icon="pie-chart-outline"
           />
           {activeCategories.map((cat, idx) => {
-            const progress = cat.planned > 0 ? cat.actual / cat.planned : 0;
-            const progressColor = progress >= 1 ? COLORS.error : progress >= 0.9 ? COLORS.warning : COLORS.emerald;
+            const progress = cat.planned > 0 ? Math.min(cat.actual / cat.planned, 1) : 0; // Cap at 100% for display
+            const progressColor =
+              progress >= 1 ? COLORS.error :
+              progress >= 0.9 ? COLORS.warning :
+              COLORS.emerald;
             return (
               <Card key={idx} style={styles.categoryCard}>
                 <View style={styles.categoryHeader}>
@@ -133,7 +174,7 @@ export default function PlanScreen() {
                     {formatCurrency(cat.actual, currencySymbol)} / {formatCurrency(cat.planned, currencySymbol)}
                   </Text>
                 </View>
-                <ProgressBar progress={progress > 1 ? 1 : progress} color={progressColor} />
+                <ProgressBar progress={progress} color={progressColor} />
               </Card>
             );
           })}

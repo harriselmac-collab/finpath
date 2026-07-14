@@ -6,6 +6,7 @@ export interface GoalInput {
   alreadySaved: number;
   targetDate: string; // YYYY-MM-DD
   isEssential: boolean;
+  classification?: 'essential' | 'important' | 'optional';
 }
 
 export interface GoalCalculationsOutput {

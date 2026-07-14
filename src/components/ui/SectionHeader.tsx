@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+import { Icon } from './Icon';
 
 export interface SectionHeaderProps {
   title: string;
@@ -23,7 +24,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
       <View style={styles.leftContent}>
         {icon && (
           <View style={styles.iconContainer}>
-            <Ionicons name={icon as any} size={20} color={COLORS.primary} />
+            <Icon name={icon} size={20} color={COLORS.primary} />
           </View>
         )}
         <View>

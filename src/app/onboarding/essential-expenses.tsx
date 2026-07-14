@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { useOnboardingStore } from '../../store/onboardingStore';
+import { useSessionStore } from '../../store/sessionStore';
 
 interface EssentialExpenseItem {
   id: string;
@@ -247,9 +248,18 @@ export default function EssentialExpensesReviewScreen() {
     setShowAdder(false);
   };
 
-  const handleConfirmAll = () => {
-    // In final stage, we save finalized essential expenses to the profile
+  const syncOnboardingAnswers = useSessionStore((state) => state.syncOnboardingAnswers);
+  const user = useSessionStore((state) => state.user);
+
+  const handleConfirmAll = async () => {
     setOnboardingCompleted(true);
+    if (user) {
+      try {
+        await syncOnboardingAnswers(answers, true);
+      } catch (err) {
+        console.warn('Failed to sync onboarding answers with live database:', err);
+      }
+    }
     router.replace('/dashboard');
   };
 

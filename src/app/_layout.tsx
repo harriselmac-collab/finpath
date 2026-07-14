@@ -9,6 +9,7 @@ import { useColorScheme } from 'react-native';
 // Import i18n configuration
 import '../services/localization/i18n';
 import { COLORS } from '../constants/theme';
+import { useSessionStore } from '../store/sessionStore';
 
 // Prevent splash screen from auto-hiding until assets are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -27,6 +28,16 @@ const FONT_FAMILIES = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const initializeAuth = useSessionStore((state) => state.initializeAuth);
+
+  useEffect(() => {
+    const unsubscribe = initializeAuth();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [initializeAuth]);
 
   useEffect(() => {
     const loadAssets = async () => {
@@ -55,7 +66,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding/quiz" />
         <Stack.Screen name="onboarding/review" />
         <Stack.Screen name="onboarding/essential-expenses" />
-        <Stack.Screen name="dashboard/index" />
+        <Stack.Screen name="(tabs)" />
       </Stack>
     </SafeAreaProvider>
   );

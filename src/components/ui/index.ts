@@ -7,3 +7,5 @@ export { EmptyState } from './EmptyState';
 export { SectionHeader } from './SectionHeader';
 export { DropdownMenu } from './DropdownMenu';
 export { LanguageSelector, LANGUAGES } from './LanguageSelector';
+export { Badge } from './Badge';
+export { Icon } from './Icon';

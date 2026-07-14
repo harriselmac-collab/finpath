@@ -5,14 +5,21 @@ export interface ParsedTransaction {
   category: string;
 }
 
-const INCOME_KEYWORDS = ['salary', 'wage', 'freelance', 'bonus', 'dividend', 'interest', 'gift'];
-const ESSENTIAL_KEYWORDS = [
-  'rent', 'housing', 'mortgage', 'electric', 'water', 'electricity', 'utility', 'phone', 'internet', 
-  'groceries', 'supermarket', 'food', 'market', 'meds', 'medication', 'doctor', 'health', 'pharmacy', 
-  'school', 'childcare', 'fees', 'fuel', 'gas', 'petrol', 'maintenance', 'insurance', 'tax'
+const INCOME_KEYWORDS = [
+  'salary', 'wage', 'freelance', 'bonus', 'dividend', 'interest', 'gift',
+  'paycheck', 'income', 'revenue', 'earnings', 'stipend', 'allowance',
+  'refund', 'cashback', 'rebate'
 ];
+
+const ESSENTIAL_KEYWORDS = [
+  'rent', 'housing', 'mortgage', 'electric', 'water', 'electricity', 'utility', 'phone', 'internet',
+  'groceries', 'supermarket', 'food', 'market', 'meds', 'medication', 'doctor', 'health', 'pharmacy',
+  'school', 'childcare', 'fees', 'fuel', 'gas', 'petrol', 'maintenance', 'insurance', 'tax',
+  'utilities', 'sewage', 'trash', 'waste', 'heating', 'cooling', 'gasoline', 'transport'
+];
+
 const FLEXIBLE_KEYWORDS = [
-  'coffee', 'restaurant', 'cafe', 'movie', 'cinema', 'subscription', 'netflix', 'spotify', 'shopping', 
+  'coffee', 'restaurant', 'cafe', 'movie', 'cinema', 'subscription', 'netflix', 'spotify', 'shopping',
   'gift', 'gym', 'entertainment', 'travel', 'flight', 'taxi', 'hotel', 'dinner', 'lunch'
 ];
 
@@ -24,7 +31,7 @@ export const parseQuickEntry = (text: string): ParsedTransaction | null => {
   if (!amountMatch) return null;
 
   const amount = Number(amountMatch[0]);
-  
+
   // Clean text by removing the amount and extra spaces
   let cleanText = text.replace(amountMatch[0], '').replace(/\s+/g, ' ').trim();
   if (!cleanText) cleanText = 'Transaction';

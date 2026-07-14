@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,8 @@ import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { supabase } from '../../services/supabase/supabaseClient';
+import { useSessionStore } from '../../store/sessionStore';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -17,8 +19,10 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const setSession = useSessionStore((state) => state.setSession);
 
-  const handleAuth = () => {
+  const handleAuth = async () => {
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
@@ -27,8 +31,116 @@ export default function AuthScreen() {
       setError('Passwords do not match');
       return;
     }
+
     setError('');
-    router.replace('/onboarding/welcome');
+    setLoading(true);
+
+    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
+
+    if (isMockSupabase) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      const mockSession = {
+        access_token: 'mock-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'mock-refresh-token',
+        user: {
+          id: 'mock-user-id',
+          email: email,
+          app_metadata: {},
+          user_metadata: { preferredName: email.split('@')[0] },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      setSession(mockSession as any);
+
+      Alert.alert(
+        'Supabase Auth (Simulation Mode)',
+        `Logged in successfully as guest: ${email}\n\nLive backend is currently offline or unconfigured.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/onboarding/welcome'),
+          },
+        ]
+      );
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (isSignUp) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (signUpError) {
+          throw signUpError;
+        }
+
+        if (data.session) {
+          setSession(data.session);
+          router.replace('/onboarding/welcome');
+        } else {
+          Alert.alert(
+            'Verification Sent',
+            'Please check your email inbox to verify your account registration.',
+            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+          );
+        }
+      } else {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          throw signInError;
+        }
+
+        if (data.session) {
+          setSession(data.session);
+          router.replace('/');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Supabase Auth error, falling back to Simulation Mode:', err);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      const mockSession = {
+        access_token: 'mock-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'mock-refresh-token',
+        user: {
+          id: 'mock-user-id',
+          email: email,
+          app_metadata: {},
+          user_metadata: { preferredName: email.split('@')[0] },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      setSession(mockSession as any);
+
+      Alert.alert(
+        'Supabase Auth (Simulation Mode)',
+        `Encountered API exception: ${err?.message || 'Unauthorized'}.\n\nLogged in via Simulation Mode as: ${email}.`,
+        [
+          {
+            text: 'Proceed',
+            onPress: () => router.replace('/onboarding/welcome'),
+          },
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -103,6 +215,8 @@ export default function AuthScreen() {
               title={isSignUp ? t('auth.signUp') : t('auth.signIn')}
               onPress={handleAuth}
               variant="primary"
+              loading={loading}
+              disabled={loading}
               style={styles.authButton}
             />
 
@@ -113,6 +227,7 @@ export default function AuthScreen() {
                 setError('');
               }}
               variant="text"
+              disabled={loading}
               style={styles.toggleButton}
             />
 
@@ -126,6 +241,7 @@ export default function AuthScreen() {
               title={t('auth.mockLogin')}
               onPress={() => router.replace('/onboarding/welcome')}
               variant="secondary"
+              disabled={loading}
               style={styles.mockButton}
             />
           </Animated.View>

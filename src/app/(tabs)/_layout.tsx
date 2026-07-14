@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
-import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 
 export default function TabLayout() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [showAddSheet, setShowAddSheet] = useState(false);
+
+  const bottomInset = insets.bottom;
+  const computedHeight = 66 + (bottomInset > 0 ? Math.max(bottomInset - 10, 0) : 0);
+  const computedPaddingBottom = bottomInset > 0 ? Math.max(bottomInset - 12, 6) : 10;
+  const computedBottom = Platform.OS === 'ios' ? Math.max(bottomInset, 16) : 16;
 
   return (
     <>
@@ -17,13 +25,13 @@ export default function TabLayout() {
           tabBarInactiveTintColor: COLORS.textSecondary,
           tabBarStyle: {
             position: 'absolute',
-            bottom: 20,
+            bottom: computedBottom,
             left: 16,
             right: 16,
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             borderRadius: RADIUS.xl,
-            height: 66,
-            paddingBottom: 10,
+            height: computedHeight,
+            paddingBottom: computedPaddingBottom,
             paddingTop: 10,
             borderTopWidth: 0,
             ...SHADOWS.lg,
@@ -117,35 +125,35 @@ export default function TabLayout() {
             </View>
 
             <View style={styles.sheetButtons}>
-              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); }}>
+              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=flexible'); }}>
                 <View style={[styles.iconBox, { backgroundColor: COLORS.mintBackground }]}>
                   <Ionicons name="receipt-outline" size={24} color={COLORS.darkEmerald} />
                 </View>
                 <Text style={styles.sheetButtonText}>Add Expense</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); }}>
+              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=income'); }}>
                 <View style={[styles.iconBox, { backgroundColor: COLORS.surfaceContainerLow }]}>
                   <Ionicons name="cash-outline" size={24} color={COLORS.primary} />
                 </View>
                 <Text style={styles.sheetButtonText}>Add Income</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); }}>
+              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=essential'); }}>
                 <View style={[styles.iconBox, { backgroundColor: '#FFF8EA' }]}>
                   <Ionicons name="calendar-outline" size={24} color={COLORS.warning} />
                 </View>
                 <Text style={styles.sheetButtonText}>Add Bill</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); }}>
+              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=debt'); }}>
                 <View style={[styles.iconBox, { backgroundColor: '#FFF2F2' }]}>
                   <Ionicons name="card-outline" size={24} color={COLORS.error} />
                 </View>
                 <Text style={styles.sheetButtonText}>Add Debt Payment</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); }}>
+              <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/goals'); }}>
                 <View style={[styles.iconBox, { backgroundColor: COLORS.surfaceContainerLow }]}>
                   <Ionicons name="trophy-outline" size={24} color={COLORS.primary} />
                 </View>
