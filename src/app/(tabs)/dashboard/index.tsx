@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable, Platform, I18nManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,8 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
 import { evaluateBudgetSafety } from '../../../features/financial-engine/safetyRules';
 import { formatCurrency } from '../../../utils/currency';
+
+const isRTL = I18nManager.isRTL;
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -257,32 +259,34 @@ export default function DashboardScreen() {
         {/* 3. AI Insight Card */}
         <Animated.View entering={FadeInUp.duration(500).delay(300)}>
           <Card style={[styles.aiCard, { backgroundColor: aiInsight.cardBg, borderColor: aiInsight.cardBorder }]}>
-            <View style={styles.aiHeaderRow}>
-              <View style={[styles.aiIconBox, { backgroundColor: `${aiInsight.iconColor}15` }]}>
-                <Icon name={aiInsight.icon} size={20} color={aiInsight.iconColor} />
-              </View>
-              <View style={styles.aiContent}>
-                <Text style={styles.aiTitle}>{aiInsight.title}</Text>
-                <Text style={styles.aiText}>
-                  {aiInsight.text}
-                  <Text style={styles.aiHighlight}>{aiInsight.highlight}</Text>
-                  {aiInsight.subText}
+            <View style={[styles.insightHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.insightTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={styles.insightIconContainer}>
+                  <Icon name={aiInsight.icon} size={20} color={aiInsight.iconColor} />
+                </View>
+
+                <Text style={styles.insightTitle}>
+                  {aiInsight.title}
                 </Text>
               </View>
-            </View>
-            <View style={styles.aiFooterRow}>
-              <TouchableOpacity
-                style={styles.aiActionButton}
-                onPress={() => router.push(aiInsight.actionRoute as any)}
+
+              <Pressable
+                style={[styles.insightAction, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                 accessibilityRole="button"
                 accessibilityLabel={aiInsight.actionLabel}
+                onPress={() => router.push(aiInsight.actionRoute as any)}
               >
-                <Text style={[styles.aiActionText, { color: aiInsight.iconColor === COLORS.warning ? '#B27B00' : aiInsight.iconColor }]}>
-                  {aiInsight.actionLabel}
-                </Text>
-                <Icon name="arrow-forward" size={14} color={aiInsight.iconColor === COLORS.warning ? '#B27B00' : aiInsight.iconColor} />
-              </TouchableOpacity>
+                <Text style={styles.insightActionText}>{aiInsight.actionLabel}</Text>
+                <Icon name="arrow-forward" size={14} color={aiInsight.iconColor} />
+              </Pressable>
             </View>
+
+            <Text style={styles.insightDescription}>
+              {aiInsight.text}
+              <Text style={[styles.insightHighlight, { color: aiInsight.iconColor }]}>
+                {aiInsight.highlight}</Text>
+              {aiInsight.subText}
+            </Text>
           </Card>
         </Animated.View>
 
@@ -1124,6 +1128,60 @@ const styles = StyleSheet.create({
   emptyTransactionsBtnText: {
     ...TYPOGRAPHY.labelSm,
     color: COLORS.onSecondaryFixed,
+    fontWeight: '700',
+  },
+  insightCard: {
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundImage: 'linear-gradient(#EAF8EF, #EAF8EF), linear-gradient(135deg, #071e3d, #48C774)',
+    backgroundOrigin: 'border-box',
+    backgroundClip: 'padding-box, border-box',
+  },
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  insightTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  insightIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  insightTitle: {
+    ...TYPOGRAPHY.bodySemiBold,
+    color: COLORS.textPrimary,
+    fontSize: 16,
+  },
+  insightAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  insightActionText: {
+    ...TYPOGRAPHY.labelSm,
+    fontWeight: '700',
+  },
+  insightDescription: {
+    ...TYPOGRAPHY.bodyMedium,
+    color: COLORS.textPrimary,
+    lineHeight: 20,
+  },
+  insightHighlight: {
     fontWeight: '700',
   },
 });

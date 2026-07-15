@@ -12,8 +12,8 @@ export default function TabLayout() {
   const [showAddSheet, setShowAddSheet] = useState(false);
 
   const bottomInset = insets.bottom;
-  const computedHeight = 66 + (bottomInset > 0 ? Math.max(bottomInset - 10, 0) : 0);
-  const computedPaddingBottom = bottomInset > 0 ? Math.max(bottomInset - 12, 6) : 10;
+  const computedHeight = 72 + (bottomInset > 0 ? Math.max(bottomInset - 6, 0) : 0);
+  const computedPaddingBottom = bottomInset > 0 ? Math.max(bottomInset - 8, 6) : 6;
   const computedBottom = Platform.OS === 'ios' ? Math.max(bottomInset, 16) : 16;
 
   return (
@@ -32,13 +32,15 @@ export default function TabLayout() {
             borderRadius: RADIUS.xl,
             height: computedHeight,
             paddingBottom: computedPaddingBottom,
-            paddingTop: 10,
+            paddingTop: 8,
             borderTopWidth: 0,
             ...SHADOWS.lg,
           },
           tabBarLabelStyle: {
             ...TYPOGRAPHY.labelSm,
             fontWeight: '600',
+            fontSize: 11,
+            lineHeight: 14,
           },
         }}
       >
