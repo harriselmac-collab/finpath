@@ -6,6 +6,7 @@ import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../../constants/theme';
 import { Card } from '../../../components/ui/Card';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { useTranslation } from 'react-i18next';
 import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useTransactionsStore } from '../../../store/transactionsStore';
 import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
@@ -13,6 +14,7 @@ import { formatCurrency } from '../../../utils/currency';
 import { SavingsProjectionChart, DebtPaydownChart } from '../../../components/ui/TrajectoryChart';
 
 export default function PlanScreen() {
+  const { t } = useTranslation();
   const { answers, debts } = useOnboardingStore();
   const { transactions } = useTransactionsStore();
 
@@ -64,21 +66,21 @@ export default function PlanScreen() {
 
   const budgetCategories = [
     {
-      name: 'Housing',
+      name: t('plan.categories.housing', 'Housing'),
       planned: Number(answers.housingAmount || 0),
       actual: actualSpending.housing,
       color: COLORS.primary,
       icon: 'home-outline',
     },
     {
-      name: 'Groceries & Essentials',
+      name: t('plan.categories.groceries', 'Groceries & Essentials'),
       planned: Number(answers.groceries || 0),
       actual: actualSpending.groceriesEssentials,
       color: COLORS.emerald,
       icon: 'cart-outline',
     },
     {
-      name: 'Utilities & Phone',
+      name: t('plan.categories.utilities', 'Utilities & Phone'),
       planned:
         Number(answers.electricity || 0) +
         Number(answers.water || 0) +
@@ -89,7 +91,7 @@ export default function PlanScreen() {
       icon: 'flash-outline',
     },
     {
-      name: 'Healthcare & Medication',
+      name: t('plan.categories.healthcare', 'Healthcare & Medication'),
       planned:
         Number(answers.medicationExpenses || 0) +
         Number(answers.healthInsurance || 0) +
@@ -100,7 +102,7 @@ export default function PlanScreen() {
       icon: 'medical-outline',
     },
     {
-      name: 'Debt Services',
+      name: t('plan.categories.debt', 'Debt Services'),
       planned: profile.minimumMonthlyDebtPayments,
       actual: actualSpending.debt,
       color: COLORS.warning,
@@ -118,22 +120,22 @@ export default function PlanScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Monthly Plan</Text>
-          <Text style={styles.subtitle}>Allocated budget vs actual outflows</Text>
+          <Text style={styles.title}>{t('plan.title', 'Monthly Plan')}</Text>
+          <Text style={styles.subtitle}>{t('plan.subtitle', 'Allocated budget vs actual outflows')}</Text>
         </View>
 
         {/* Plan Overview Card */}
         <Card style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.sumBox}>
-              <Text style={styles.sumLabel}>Total Inflows</Text>
+              <Text style={styles.sumLabel}>{t('plan.totalInflows', 'Total Inflows')}</Text>
               <Text style={[styles.sumVal, { color: COLORS.emerald }]}>
                 {formatCurrency(profile.totalMonthlyIncome, currencySymbol)}
               </Text>
             </View>
             <View style={styles.dividerCol} />
             <View style={styles.sumBox}>
-              <Text style={styles.sumLabel}>Essential Outflows</Text>
+              <Text style={styles.sumLabel}>{t('plan.essentialOutflows', 'Essential Outflows')}</Text>
               <Text style={[styles.sumVal, { color: COLORS.primary }]}>
                 {formatCurrency(profile.essentialMonthlyExpenses + profile.minimumMonthlyDebtPayments, currencySymbol)}
               </Text>
@@ -141,7 +143,7 @@ export default function PlanScreen() {
           </View>
           <View style={styles.dividerRow} />
           <View style={styles.balanceRow}>
-            <Text style={styles.balLabel}>Discretionary / Available Balance</Text>
+            <Text style={styles.balLabel}>{t('plan.availableBalance', 'Discretionary / Available Balance')}</Text>
             <Text style={[styles.balVal, profile.realAvailableMonthlyBalance < 0 && { color: COLORS.error }]}>
               {formatCurrency(profile.realAvailableMonthlyBalance, currencySymbol)}
             </Text>
@@ -151,8 +153,8 @@ export default function PlanScreen() {
         {/* Categories budget trackers */}
         <View style={styles.categoriesSection}>
           <SectionHeader
-            title="Planned Allocations"
-            subtitle="Budget vs actual spending"
+            title={t('dashboard.drawer.plan', 'Planned Allocations')}
+            subtitle={t('dashboard.trendsSubtitle', 'Budget vs actual spending')}
             icon="pie-chart-outline"
           />
           {activeCategories.map((cat, idx) => {
@@ -183,8 +185,8 @@ export default function PlanScreen() {
         {/* Interactive Trajectory Projections */}
         <View style={styles.categoriesSection}>
           <SectionHeader
-            title="Interactive Projections"
-            subtitle="Visualize your financial trajectory"
+            title={t('plan.projections', 'Interactive Projections')}
+            subtitle={t('plan.trajectory', 'Visualize your financial trajectory')}
             icon="trending-up-outline"
           />
           <SavingsProjectionChart
@@ -207,10 +209,10 @@ export default function PlanScreen() {
             <View style={styles.reminderIconBox}>
               <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.darkEmerald} />
             </View>
-            <Text style={styles.reminderTitle}>Protected First Principles</Text>
+            <Text style={styles.reminderTitle}>{t('plan.protectedFirstPrinciples', 'Protected First Principles')}</Text>
           </View>
           <Text style={styles.reminderText}>
-            Always cover Food, Housing, and Medications first before making any discretionary purchases or saving for optional personal goals.
+            {t('plan.protectedDesc', 'Always cover Food, Housing, and Medications first before making any discretionary purchases or saving for optional personal goals.')}
           </Text>
         </Card>
       </ScrollView>

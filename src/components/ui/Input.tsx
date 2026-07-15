@@ -1,13 +1,15 @@
+// src/components/ui/Input.tsx
 import React, { useState } from 'react';
 import {
   TextInput,
   View,
-  Text,
   StyleSheet,
   ViewStyle,
   TextStyle,
   KeyboardTypeOptions,
 } from 'react-native';
+import AppText from '../../components/Text/AppText';
+
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 
 export interface InputProps {
@@ -43,7 +45,11 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <AppText variant="inputLabel" style={styles.label}>
+          {label}
+        </AppText>
+      )}
       <View
         style={[
           styles.inputContainer,
@@ -54,7 +60,9 @@ export const Input: React.FC<InputProps> = ({
       >
         {prefix && (
           <View style={styles.prefixContainer}>
-            <Text style={styles.prefixText}>{prefix}</Text>
+            <AppText variant="inputLabel" style={styles.prefixText}>
+              {prefix}
+            </AppText>
           </View>
         )}
         <TextInput
@@ -76,7 +84,11 @@ export const Input: React.FC<InputProps> = ({
           accessibilityLabel={label || placeholder}
         />
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <AppText variant="caption" style={styles.errorText}>
+          {error}
+        </AppText>
+      )}
     </View>
   );
 };
@@ -87,8 +99,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
+    // We'll let the AppText handle the styling via variant, so we can remove the explicit styles
+    // But we need to keep the marginBottom
     marginBottom: SPACING.xs,
   },
   inputContainer: {
@@ -116,14 +128,12 @@ const styles = StyleSheet.create({
     marginRight: SPACING.xs,
     justifyContent: 'center',
   },
-  prefixText: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textSecondary,
-  },
+  // prefixText is now handled by AppText with variant="inputLabel"
+  prefixText: {},
   textInput: {
     flex: 1,
     height: '100%',
-    ...TYPOGRAPHY.bodyLg,
+    ...TYPOGRAPHY.inputValue,
     color: COLORS.textPrimary,
     padding: 0,
   },
@@ -132,8 +142,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   errorText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.error,
+    // We'll let the AppText handle the styling via variant="caption"
     marginTop: SPACING.xs,
   },
 });

@@ -6,13 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   Modal,
   Pressable,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../../constants/theme';
 import { Card, ProgressBar, Badge, Icon } from '../../../components/ui';
 import { Input } from '../../../components/ui/Input';
@@ -43,8 +41,8 @@ export default function GoalsScreen() {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'personal'>('upcoming');
 
   const [goals, setGoals] = useState<GoalInput[]>([
-    { name: 'Emergency Protection Fund', targetAmount: 15000, alreadySaved: 3000, targetDate: '2027-07-13', isEssential: true, classification: 'essential' },
-    { name: 'New Laptop for Work', targetAmount: 8000, alreadySaved: 2000, targetDate: '2026-11-13', isEssential: false, classification: 'important' },
+    { name: 'Emergency Protection Fund', targetAmount: 15000, alreadySaved: 3000, targetDate: '2027-07-13', isEssential: true, classification: 'essential', emoji: '🛡️' },
+    { name: 'New Laptop for Work', targetAmount: 8000, alreadySaved: 2000, targetDate: '2026-11-13', isEssential: false, classification: 'important', emoji: '💻' },
   ]);
 
   const [suggestions, setSuggestions] = useState<UpcomingSuggestion[]>([]);
@@ -99,6 +97,7 @@ export default function GoalsScreen() {
   const [alreadySaved, setAlreadySaved] = useState('');
   const [targetDate, setTargetDate] = useState('');
   const [classification, setClassification] = useState<'essential' | 'important' | 'optional'>('important');
+  const [goalEmoji, setGoalEmoji] = useState('💰');
   const [showCelebration, setShowCelebration] = useState(false);
   const [contributeIndex, setContributeIndex] = useState<number | null>(null);
   const [contributeAmount, setContributeAmount] = useState('');
@@ -145,6 +144,7 @@ export default function GoalsScreen() {
       targetDate,
       isEssential: classification === 'essential',
       classification,
+      emoji: goalEmoji,
     };
 
     setGoals([...goals, newGoal]);
@@ -153,6 +153,7 @@ export default function GoalsScreen() {
     setAlreadySaved('');
     setTargetDate('');
     setClassification('important');
+    setGoalEmoji('💰');
     setShowGoalForm(false);
   };
 
@@ -373,6 +374,29 @@ export default function GoalsScreen() {
                 <Input label={`Already Saved (${currencySymbol})`} value={alreadySaved} onChangeText={setAlreadySaved} placeholder="0.00" keyboardType="numeric" />
                 <Input label="Target Date" value={targetDate} onChangeText={setTargetDate} placeholder="YYYY-MM-DD" />
                 
+                <View style={styles.emojiSection}>
+                  <Text style={styles.emojiLabel}>Choose Goal Emoji</Text>
+                  <View style={styles.emojiGrid}>
+                    {['💰', '🛡️', '🏠', '🚗', '💻', '✈️', '🎓', '🛍️', '💍', '🩺', '🎁'].map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={[styles.emojiItem, goalEmoji === item && styles.emojiItemActive]}
+                        onPress={() => setGoalEmoji(item)}
+                      >
+                        <Text style={styles.emojiText}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.customEmojiRow}>
+                    <Input
+                      label="Or Type Custom Emoji"
+                      value={goalEmoji}
+                      onChangeText={(val) => setGoalEmoji(val.trim().slice(0, 4))}
+                      containerStyle={styles.customEmojiInput}
+                    />
+                  </View>
+                </View>
+
                 <View style={styles.classificationContainer}>
                   <Text style={styles.classificationLabel}>Goal Classification</Text>
                   <View style={styles.classificationBtnRow}>
@@ -413,7 +437,9 @@ export default function GoalsScreen() {
                 <Card key={idx} style={styles.goalCard}>
                   <View style={styles.goalHeader}>
                     <View style={styles.goalTitleRow}>
-                      <Text style={styles.goalTitle}>{goal.name}</Text>
+                      <Text style={styles.goalTitle}>
+                        {goal.emoji ? `${goal.emoji} ` : '🎯 '}{goal.name}
+                      </Text>
                       <Badge label={currentClassification} type={currentClassification} />
                     </View>
                     <TouchableOpacity
@@ -745,6 +771,43 @@ const styles = StyleSheet.create({
   goalFormCard: {
     padding: SPACING.md,
     gap: SPACING.sm,
+  },
+  emojiSection: {
+    marginTop: SPACING.xs,
+    gap: 4,
+  },
+  emojiLabel: {
+    ...TYPOGRAPHY.bodySemiBold,
+    color: COLORS.textPrimary,
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: 4,
+  },
+  emojiItem: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceContainer,
+  },
+  emojiItemActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: `${COLORS.primary}10`,
+  },
+  emojiText: {
+    fontSize: 18,
+  },
+  customEmojiRow: {
+    marginTop: 2,
+  },
+  customEmojiInput: {
+    width: '100%',
   },
   classificationContainer: {
     marginTop: SPACING.xs,

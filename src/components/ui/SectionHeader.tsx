@@ -1,7 +1,9 @@
+// src/components/ui/SectionHeader.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import AppText from '../Text/AppText';
 import { Icon } from './Icon';
 
 export interface SectionHeaderProps {
@@ -28,14 +30,22 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           </View>
         )}
         <View>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          <AppText variant="sectionTitle" style={styles.title}>
+            {title}
+          </AppText>
+          {subtitle && (
+            <AppText variant="supporting" style={styles.subtitle}>
+              {subtitle}
+            </AppText>
+          )}
         </View>
       </View>
-      
+
       {actionLabel && onAction && (
         <TouchableOpacity onPress={onAction} style={styles.actionButton}>
-          <Text style={styles.actionText}>{actionLabel}</Text>
+          <AppText variant="button" style={styles.actionText}>
+            {actionLabel}
+          </AppText>
           <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
         </TouchableOpacity>
       )}
@@ -65,14 +75,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...TYPOGRAPHY.bodySemiBold,
+    // We'll let the variant handle the typography, but we need to override the color?
+    // The variant already sets the color via typography, but we want to use the theme's textPrimary
+    // Actually, the typography doesn't set color; we set it in the style.
+    // We'll set the color to textPrimary for title and supporting.
     color: COLORS.textPrimary,
-    fontSize: 15,
   },
   subtitle: {
-    ...TYPOGRAPHY.caption,
     color: COLORS.textSecondary,
-    marginTop: 2,
   },
   actionButton: {
     flexDirection: 'row',
@@ -84,8 +94,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceContainerLow,
   },
   actionText: {
-    ...TYPOGRAPHY.labelSm,
+    // The variant will set the fontFamily and size, we just need to set the color
     color: COLORS.primary,
-    fontWeight: '600',
   },
 });

@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 
 export default function TabLayout() {
   const router = useRouter();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [showAddSheet, setShowAddSheet] = useState(false);
 
@@ -47,7 +49,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="dashboard/index"
           options={{
-            title: 'Home',
+            title: t('tabs.home', 'Home'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
             ),
@@ -57,7 +59,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="plan/index"
           options={{
-            title: 'Plan',
+            title: t('tabs.plan', 'Plan'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'analytics' : 'analytics-outline'} size={22} color={color} />
             ),
@@ -67,7 +69,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="add-stub"
           options={{
-            title: 'Add',
+            title: t('common.add', 'Add'),
             tabBarIcon: () => (
               <View style={styles.centeredAddButton}>
                 <Ionicons name="add" size={28} color={COLORS.primary} />
@@ -86,7 +88,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="transactions/index"
           options={{
-            title: 'History',
+            title: t('tabs.history', 'History'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
             ),
@@ -96,7 +98,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="profile/index"
           options={{
-            title: 'Profile',
+            title: t('tabs.profile', 'Profile'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
             ),
@@ -123,7 +125,7 @@ export default function TabLayout() {
           <View style={styles.sheetContent}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHandle} />
-              <Text style={styles.sheetTitle}>Quick Action</Text>
+              <Text style={styles.sheetTitle}>{t('tabs.quickAction', 'Quick Action')}</Text>
             </View>
 
             <View style={styles.sheetButtons}>
@@ -131,40 +133,40 @@ export default function TabLayout() {
                 <View style={[styles.iconBox, { backgroundColor: COLORS.mintBackground }]}>
                   <Ionicons name="receipt-outline" size={24} color={COLORS.darkEmerald} />
                 </View>
-                <Text style={styles.sheetButtonText}>Add Expense</Text>
+                <Text style={styles.sheetButtonText}>{t('tabs.addExpense', 'Add Expense')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=income'); }}>
                 <View style={[styles.iconBox, { backgroundColor: COLORS.surfaceContainerLow }]}>
                   <Ionicons name="cash-outline" size={24} color={COLORS.primary} />
                 </View>
-                <Text style={styles.sheetButtonText}>Add Income</Text>
+                <Text style={styles.sheetButtonText}>{t('tabs.addIncome', 'Add Income')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=essential'); }}>
                 <View style={[styles.iconBox, { backgroundColor: '#FFF8EA' }]}>
                   <Ionicons name="calendar-outline" size={24} color={COLORS.warning} />
                 </View>
-                <Text style={styles.sheetButtonText}>Add Bill</Text>
+                <Text style={styles.sheetButtonText}>{t('tabs.addBill', 'Add Bill')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/transactions?openForm=true&actionType=debt'); }}>
                 <View style={[styles.iconBox, { backgroundColor: '#FFF2F2' }]}>
                   <Ionicons name="card-outline" size={24} color={COLORS.error} />
                 </View>
-                <Text style={styles.sheetButtonText}>Add Debt Payment</Text>
+                <Text style={styles.sheetButtonText}>{t('tabs.addDebt', 'Add Debt Payment')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.sheetButton} onPress={() => { setShowAddSheet(false); router.push('/goals'); }}>
                 <View style={[styles.iconBox, { backgroundColor: COLORS.surfaceContainerLow }]}>
                   <Ionicons name="trophy-outline" size={24} color={COLORS.primary} />
                 </View>
-                <Text style={styles.sheetButtonText}>Add Personal Goal</Text>
+                <Text style={styles.sheetButtonText}>{t('tabs.addGoal', 'Add Personal Goal')}</Text>
               </TouchableOpacity>
             </View>
 
             <Button
-              title="Cancel"
+              title={t('common.cancel', 'Cancel')}
               onPress={() => setShowAddSheet(false)}
               variant="secondary"
               style={styles.cancelBtn}

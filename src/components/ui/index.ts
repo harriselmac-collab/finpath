@@ -1,5 +1,5 @@
 export { Button } from './Button';
-export { Card, SelectionCard, AlertCard } from './Card';
+export { Card, SelectionCard, AlertCard, PressableCard } from './Card';
 export { Input } from './Input';
 export { ProgressBar } from './ProgressBar';
 export { Skeleton, CardSkeleton, ListSkeleton } from './Skeleton';

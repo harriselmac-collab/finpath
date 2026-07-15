@@ -74,7 +74,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#f6f8fc', // Tinted premium neutral background
   },
   content: {
     flex: 1,
@@ -87,9 +87,9 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
   },
   logoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: RADIUS.lg,
+    width: 64,
+    height: 64,
+    borderRadius: 20, // Organic shape/squircle-like radius
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h2,
     color: COLORS.white,
     fontWeight: '800',
+    letterSpacing: 1,
   },
   brandName: {
     ...TYPOGRAPHY.h1,
@@ -117,6 +118,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     textAlign: 'center',
     lineHeight: 40,
+    letterSpacing: -0.8, // Negative tracking on big headings
   },
   subtitle: {
     ...TYPOGRAPHY.bodySemiBold,
@@ -128,14 +130,16 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.bodyMedium,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24, // Let the paragraph breathe
     paddingHorizontal: SPACING.md,
   },
   privacyCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.mintBackground,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)', // Glassmorphic background
     borderWidth: 1,
-    borderColor: COLORS.emerald,
+    borderColor: 'rgba(7, 30, 61, 0.06)',
+    borderLeftWidth: 5,
+    borderLeftColor: COLORS.emerald, // Clean left stripe accent
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     gap: SPACING.md,
@@ -145,24 +149,24 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(72, 199, 116, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   privacyIcon: {
-    fontSize: 24,
+    fontSize: 22,
   },
   privacyContent: {
     flex: 1,
   },
   privacyTitle: {
     ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.darkEmerald,
+    color: COLORS.primary,
     marginBottom: SPACING.xs,
   },
   privacyText: {
     ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     lineHeight: 20,
   },
   actions: {

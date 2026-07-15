@@ -51,6 +51,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!user) return false;
 
     set({ syncing: true });
+    
+    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
+    if (isMockSupabase) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      set({ syncing: false });
+      return true;
+    }
+
     try {
       // Upsert answers based on user_id
       const { error } = await supabase.from('onboarding_answers').upsert(
@@ -76,6 +84,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!user) return null;
 
     set({ loading: true });
+    
+    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
+    if (isMockSupabase) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      set({ loading: false });
+      return null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('onboarding_answers')

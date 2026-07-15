@@ -1,31 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable, Platform, I18nManager } from 'react-native';
+// src/app/(tabs)/dashboard/index.tsx
+import React, { useState } from 'react';
+import { View, ScrollView, TouchableOpacity, Modal, Pressable, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../../../constants/theme';
-import { Card, AlertCard, ProgressBar, Icon, Badge } from '../../../components/ui';
+import { Card, AlertCard, Icon, PressableCard } from '../../../components/ui';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { SpendingTrendsChart } from '../../../components/ui/SpendingTrendsChart';
 import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useTransactionsStore } from '../../../store/transactionsStore';
 import { useSessionStore } from '../../../store/sessionStore';
+import { useTranslation } from 'react-i18next';
 import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
 import { evaluateBudgetSafety } from '../../../features/financial-engine/safetyRules';
 import { formatCurrency } from '../../../utils/currency';
-
-const isRTL = I18nManager.isRTL;
+import { isRTL } from '../../../services/localization/i18n';
+import AppText from '../../../components/Text/AppText';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { answers, debts, resetOnboarding } = useOnboardingStore();
   const { transactions } = useTransactionsStore();
   const { user, signOut } = useSessionStore();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const currencySymbol = answers['currency'] || 'MAD';
-
-
 
   const profile = calculateFinancialProfile({ answers, debts });
   const safetyReport = evaluateBudgetSafety(
@@ -121,11 +122,11 @@ export default function DashboardScreen() {
         type: 'warning' as const,
         icon: 'warning',
         iconColor: COLORS.error,
-        title: 'Budget Shortfall Alert',
-        text: `Your essential needs exceed your income by `,
+        title: t('dashboard.insight.budgetShortfall.title', 'Budget Shortfall Alert'),
+        text: t('dashboard.insight.budgetShortfall.text', 'Your essential needs exceed your income by '),
         highlight: `${formatCurrency(deficitAmount, currencySymbol)}`,
-        subText: '. Review planned outflows and explore relief options.',
-        actionLabel: 'Review Plan',
+        subText: t('dashboard.insight.budgetShortfall.subText', '. Review planned outflows and explore relief options.'),
+        actionLabel: t('dashboard.insight.budgetShortfall.action', 'Review Plan'),
         actionRoute: '/plan',
         cardBg: '#FFF2F2',
         cardBorder: COLORS.error,
@@ -135,11 +136,11 @@ export default function DashboardScreen() {
         type: 'warning' as const,
         icon: 'alert-circle',
         iconColor: COLORS.warning,
-        title: 'High Debt Pressure Alert',
-        text: 'Minimum debt payments consume ',
+        title: t('dashboard.insight.highDebt.title', 'High Debt Pressure Alert'),
+        text: t('dashboard.insight.highDebt.text', 'Minimum debt payments consume '),
         highlight: `${Math.round(profile.debtPressureRatio * 100)}%`,
-        subText: ' of your total monthly income. Consider prioritizing high-interest payoffs.',
-        actionLabel: 'View Details',
+        subText: t('dashboard.insight.highDebt.subText', ' of your total monthly income. Consider prioritizing high-interest payoffs.'),
+        actionLabel: t('dashboard.insight.highDebt.action', 'View Details'),
         actionRoute: '/plan',
         cardBg: '#FFF8EA',
         cardBorder: COLORS.warning,
@@ -149,11 +150,11 @@ export default function DashboardScreen() {
         type: 'positive' as const,
         icon: 'sparkles',
         iconColor: COLORS.emerald,
-        title: 'FinPath Intelligence',
-        text: 'You are currently on track to save ',
+        title: t('dashboard.insight.positive.title', 'FinPath Intelligence'),
+        text: t('dashboard.insight.positive.text', 'You are currently on track to save '),
         highlight: `500 ${currencySymbol}`,
-        subText: ' more than last month. Steady budgeting keeps your safety buffer strong.',
-        actionLabel: 'View Insight',
+        subText: t('dashboard.insight.positive.subText', ' more than last month. Steady budgeting keeps your safety buffer strong.'),
+        actionLabel: t('dashboard.insight.positive.action', 'View Insight'),
         actionRoute: '/plan',
         cardBg: COLORS.mintBackground,
         cardBorder: COLORS.emerald,
@@ -175,7 +176,9 @@ export default function DashboardScreen() {
             <TouchableOpacity onPress={() => setIsMenuVisible(true)} style={styles.menuIconButton} accessibilityRole="button" accessibilityLabel="Menu">
               <Icon name="menu" size={24} color={COLORS.primary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>FinPath</Text>
+            <AppText variant="screenTitle" style={styles.headerTitle}>
+              FinPath
+            </AppText>
           </View>
           <TouchableOpacity onPress={() => router.push('/profile')} style={styles.headerRight} accessibilityRole="link" accessibilityLabel="Profile">
             <View style={styles.avatarContainer}>
@@ -197,24 +200,29 @@ export default function DashboardScreen() {
         {/* 1 & 2. Hero Metrics Section */}
         <View style={styles.metricsGrid}>
           {/* Primary Balance Card */}
-          <Animated.View entering={FadeInUp.duration(500).delay(100)}>
+          <Animated.View entering={FadeInUp.springify().damping(14).stiffness(120).delay(100)}>
             <Card style={styles.balanceCard}>
               <View style={styles.balanceContent}>
-                <Text style={styles.balanceLabel}>Available this month</Text>
-                <Text
+                <AppText variant="body" style={styles.balanceLabel}>
+                  Available this month
+                </AppText>
+                <AppText
+                  variant="financialAmount"
                   style={[
                     styles.balanceAmount,
                     profile.realAvailableMonthlyBalance < 0 && { color: COLORS.error },
                   ]}
                 >
                   {formatCurrency(profile.realAvailableMonthlyBalance, currencySymbol)}
-                </Text>
+                </AppText>
                 <View style={styles.balanceFooter}>
                   <View>
-                    <Text style={styles.balanceSubLabel}>Safe daily spending</Text>
-                    <Text style={styles.balanceSubValue}>
+                    <AppText variant="body" style={styles.balanceSubLabel}>
+                      Safe daily spending
+                    </AppText>
+                    <AppText variant="financialAmount" style={styles.balanceSubValue}>
                       {formatCurrency(profile.safeDailySpending, currencySymbol)}
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={styles.balanceIconBox}>
                     <Icon name="trending-up" size={24} color={COLORS.white} />
@@ -226,97 +234,96 @@ export default function DashboardScreen() {
           </Animated.View>
 
           {/* Savings Goal Card */}
-          <Animated.View entering={FadeInUp.duration(500).delay(200)}>
+          <Animated.View entering={FadeInUp.springify().damping(14).stiffness(120).delay(200)}>
             <Card style={styles.goalCard}>
               <View style={styles.goalHeader}>
                 <View style={styles.goalInfo}>
-                  <Text style={styles.goalLabel}>Savings progress</Text>
-                  <Text style={styles.goalTitle}>Emergency Fund</Text>
+                  <AppText variant="body" style={styles.goalLabel}>
+                    Savings progress
+                  </AppText>
+                  <AppText variant="sectionTitle" style={styles.goalTitle}>
+                    Emergency Fund
+                  </AppText>
                 </View>
                 <View style={[styles.goalIconBox, { backgroundColor: `${COLORS.secondary}15` }]}>
                   <Icon name="shield" size={20} color={COLORS.secondary} />
                 </View>
-              </View>
-              
-              <View style={styles.goalAmountsRow}>
-                <Text style={styles.goalSavedText}>
-                  {formatCurrency(3000, currencySymbol)} saved of {formatCurrency(5000, currencySymbol)}
-                </Text>
-              </View>
-
-              <View style={styles.progressRow}>
-                <ProgressBar progress={0.6} height={6} color={COLORS.emerald} />
-              </View>
-              
-              <View style={styles.goalFooter}>
-                <Text style={styles.goalProgress}>60% achieved</Text>
-                <Text style={styles.goalAmount}>Goal contribution: +1,200 {currencySymbol} saved this week</Text>
               </View>
             </Card>
           </Animated.View>
         </View>
 
         {/* 3. AI Insight Card */}
-        <Animated.View entering={FadeInUp.duration(500).delay(300)}>
-          <Card style={[styles.aiCard, { backgroundColor: aiInsight.cardBg, borderColor: aiInsight.cardBorder }]}>
+        <Animated.View entering={FadeInUp.springify().damping(14).stiffness(120).delay(300)}>
+          <PressableCard onPress={() => router.push(aiInsight.actionRoute as any)} style={[styles.aiCard, { backgroundColor: aiInsight.cardBg, borderColor: aiInsight.cardBorder }]}>
             <View style={[styles.insightHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.insightTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={styles.insightIconContainer}>
                   <Icon name={aiInsight.icon} size={20} color={aiInsight.iconColor} />
                 </View>
 
-                <Text style={styles.insightTitle}>
+                <AppText variant="sectionTitle" style={styles.insightTitle}>
                   {aiInsight.title}
-                </Text>
+                </AppText>
               </View>
 
-              <Pressable
+              <View
                 style={[styles.insightAction, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                accessibilityRole="button"
-                accessibilityLabel={aiInsight.actionLabel}
-                onPress={() => router.push(aiInsight.actionRoute as any)}
               >
-                <Text style={styles.insightActionText}>{aiInsight.actionLabel}</Text>
+                <AppText variant="button" style={styles.insightActionText}>
+                  {aiInsight.actionLabel}
+                </AppText>
                 <Icon name="arrow-forward" size={14} color={aiInsight.iconColor} />
-              </Pressable>
+              </View>
             </View>
 
-            <Text style={styles.insightDescription}>
+            <AppText variant="body" style={styles.insightDescription}>
               {aiInsight.text}
-              <Text style={[styles.insightHighlight, { color: aiInsight.iconColor }]}>
-                {aiInsight.highlight}</Text>
+              <AppText variant="financialAmount" style={{ color: aiInsight.iconColor, marginLeft: 2, marginRight: 2 }}>
+                {aiInsight.highlight}
+              </AppText>
               {aiInsight.subText}
-            </Text>
-          </Card>
+            </AppText>
+          </PressableCard>
         </Animated.View>
 
         {/* 4. Upcoming Bills */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming</Text>
+            <AppText variant="sectionTitle" style={styles.sectionTitle}>
+              Upcoming
+            </AppText>
             <TouchableOpacity onPress={() => router.push('/goals')} accessibilityRole="button" accessibilityLabel="Calendar">
-              <Text style={styles.sectionAction}>Calendar</Text>
+              <AppText variant="button" style={styles.sectionAction}>
+                Calendar
+              </AppText>
             </TouchableOpacity>
           </View>
           <View style={styles.billsContainer}>
             {upcomingBills.slice(0, 2).map((bill, index) => {
               const isDueSoon = bill.dueIn.toLowerCase().includes('3') || bill.dueIn.toLowerCase().includes('soon') || bill.dueIn.toLowerCase().includes('1') || bill.dueIn.toLowerCase().includes('2');
               return (
-                <Animated.View key={bill.id} entering={FadeInUp.duration(400).delay(350 + index * 60)}>
+                <Animated.View key={bill.id} entering={FadeInUp.springify().damping(14).stiffness(120).delay(350 + index * 60)}>
                   <Card style={styles.billCard}>
                     <View style={[styles.billIconBox, { backgroundColor: isDueSoon ? '#FFF8EA' : COLORS.surfaceContainerLow }]}>
                       <Icon name={bill.icon} size={20} color={isDueSoon ? '#B27B00' : COLORS.primary} />
                     </View>
                     <View style={styles.billMeta}>
-                      <Text style={styles.billName}>{bill.name}</Text>
+                      <AppText variant="body" style={styles.billName}>
+                        {bill.name}
+                      </AppText>
                       <View style={styles.billDueRow}>
                         {isDueSoon && (
                           <Icon name="warning" size={12} color="#B27B00" style={{ marginRight: 4 }} />
                         )}
-                        <Text style={[styles.billDue, isDueSoon && { color: '#B27B00', fontWeight: '600' }]}>{bill.dueIn}</Text>
+                        <AppText variant="caption" style={[styles.billDue, isDueSoon && { color: '#B27B00', fontWeight: '600' }]}>
+                          {bill.dueIn}
+                        </AppText>
                       </View>
                     </View>
-                    <Text style={styles.billAmount}>{formatCurrency(bill.amount, currencySymbol)}</Text>
+                    <AppText variant="financialAmount" style={styles.billAmount}>
+                      {formatCurrency(bill.amount, currencySymbol)}
+                    </AppText>
                   </Card>
                 </Animated.View>
               );
@@ -336,21 +343,27 @@ export default function DashboardScreen() {
           {recentTransactions.length === 0 ? (
             <Card style={styles.emptyTransactionsCard}>
               <Icon name="receipt" size={32} color={COLORS.textSecondary} style={{ marginBottom: SPACING.xs }} />
-              <Text style={styles.emptyTransactionsTitle}>No recent transactions</Text>
-              <Text style={styles.emptyTransactionsSub}>Your latest income and expenses will appear here.</Text>
+              <AppText variant="sectionTitle" style={styles.emptyTransactionsTitle}>
+                No recent transactions
+              </AppText>
+              <AppText variant="supporting" style={styles.emptyTransactionsSub}>
+                Your latest income and expenses will appear here.
+              </AppText>
               <TouchableOpacity
                 style={styles.emptyTransactionsBtn}
                 onPress={() => router.push('/transactions?openForm=true')}
                 accessibilityRole="button"
                 accessibilityLabel="Add Transaction"
               >
-                <Text style={styles.emptyTransactionsBtnText}>+ Add Transaction</Text>
+                <AppText variant="button" style={styles.emptyTransactionsBtnText}>
+                  + Add Transaction
+                </AppText>
               </TouchableOpacity>
             </Card>
           ) : (
             <Card style={styles.transactionsCard}>
               {recentTransactions.slice(0, 3).map((tx, index) => (
-                <Animated.View key={tx.id} entering={FadeInUp.duration(400).delay(400 + index * 60)}>
+                <Animated.View key={tx.id} entering={FadeInUp.springify().damping(14).stiffness(120).delay(400 + index * 60)}>
                   <TouchableOpacity
                     style={[
                       styles.txRow,
@@ -363,18 +376,24 @@ export default function DashboardScreen() {
                       <Icon name={tx.icon} size={20} color={COLORS.primary} />
                     </View>
                     <View style={styles.txMeta}>
-                      <Text style={styles.txName}>{tx.name}</Text>
-                      <Text style={styles.txDate}>{tx.date}</Text>
+                      <AppText variant="body" style={styles.txName}>
+                        {tx.name}
+                      </AppText>
+                      <AppText variant="caption" style={styles.txDate}>
+                        {tx.date}
+                      </AppText>
                     </View>
                     <View style={styles.txRight}>
-                      <Text style={[
+                      <AppText variant="financialAmount" style={[
                         styles.txAmount,
                         tx.type === 'income' ? styles.txAmountGreen : styles.txAmountDefault,
                       ]}>
                         {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount, currencySymbol)}
-                      </Text>
+                      </AppText>
                       <View style={[styles.categoryChip, { backgroundColor: `${COLORS.textSecondary}15` }]}>
-                        <Text style={styles.categoryChipText}>{tx.category}</Text>
+                        <AppText variant="caption" style={styles.categoryChipText}>
+                          {tx.category}
+                        </AppText>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -385,22 +404,30 @@ export default function DashboardScreen() {
         </View>
 
         {/* 6. Spending Trends Chart */}
-        <View style={styles.section}>
-          <SectionHeader
-            title="Spending Trends"
-            subtitle="Monthly income vs expenses"
-            icon="trending-up"
-          />
-          <SpendingTrendsChart currencySymbol={currencySymbol} />
-        </View>
+        <Animated.View entering={FadeInUp.springify().damping(14).stiffness(120).delay(500)}>
+          <View style={styles.section}>
+            <SectionHeader
+              title="Spending Trends"
+              subtitle="Monthly income vs expenses"
+              icon="trending-up"
+            />
+            <SpendingTrendsChart currencySymbol={currencySymbol} />
+          </View>
+        </Animated.View>
 
         {/* 7. Financial Literacy Card */}
-        <Animated.View entering={FadeInUp.duration(500).delay(700)}>
+        <Animated.View entering={FadeInUp.springify().damping(14).stiffness(120).delay(600)}>
           <Card style={styles.literacyCard}>
-            <Text style={styles.literacyLabel}>Financial Literacy</Text>
-            <Text style={styles.literacyTitle}>Master the 50/30/20 budget rule</Text>
+            <AppText variant="body" style={styles.literacyLabel}>
+              Financial Literacy
+            </AppText>
+            <AppText variant="sectionTitle" style={styles.literacyTitle}>
+              Master the 50/30/20 budget rule
+            </AppText>
             <TouchableOpacity style={styles.literacyAction} accessibilityRole="button" accessibilityLabel="Learn More">
-              <Text style={styles.literacyActionText}>Learn More</Text>
+              <AppText variant="button" style={styles.literacyActionText}>
+                Learn More
+              </AppText>
               <Icon name="arrow-forward" size={16} color={COLORS.onPrimaryContainer} />
             </TouchableOpacity>
           </Card>
@@ -419,18 +446,22 @@ export default function DashboardScreen() {
       >
         <View style={styles.modalContainer}>
           <Pressable style={styles.backdrop} onPress={() => setIsMenuVisible(false)} />
-          
-          <Animated.View 
-            entering={SlideInLeft.duration(300)} 
-            exiting={SlideOutLeft.duration(250)} 
+
+          <Animated.View
+            entering={SlideInLeft.duration(300)}
+            exiting={SlideOutLeft.duration(250)}
             style={styles.drawerPanel}
           >
             <View style={styles.drawerHeader}>
               <View style={styles.drawerLogoRow}>
                 <View style={styles.drawerLogoBadge}>
-                  <Text style={styles.drawerLogoText}>FP</Text>
+                  <AppText variant="body" style={styles.drawerLogoText}>
+                    FP
+                  </AppText>
                 </View>
-                <Text style={styles.drawerBrandName}>FinPath</Text>
+                <AppText variant="sectionTitle" style={styles.drawerBrandName}>
+                  FinPath
+                </AppText>
               </View>
               <TouchableOpacity onPress={() => setIsMenuVisible(false)} style={styles.closeBtn}>
                 <Ionicons name="close" size={24} color={COLORS.primary} />
@@ -438,35 +469,45 @@ export default function DashboardScreen() {
             </View>
 
             <ScrollView style={styles.drawerScroll} contentContainerStyle={styles.drawerContent}>
-              <Text style={styles.drawerUserEmail}>
+              <AppText variant="caption" style={styles.drawerUserEmail}>
                 {user?.email ? `Logged in: ${user.email}` : 'Guest Mode'}
-              </Text>
-              
+              </AppText>
+
               <View style={styles.drawerDivider} />
 
               <TouchableOpacity style={styles.drawerLink} onPress={() => { setIsMenuVisible(false); router.push('/dashboard'); }}>
                 <Ionicons name="home-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.drawerLinkText}>Home Dashboard</Text>
+                <AppText variant="body" style={styles.drawerLinkText}>
+                  Home Dashboard
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.drawerLink} onPress={() => { setIsMenuVisible(false); router.push('/goals'); }}>
                 <Ionicons name="trophy-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.drawerLinkText}>Goals & Expenses</Text>
+                <AppText variant="body" style={styles.drawerLinkText}>
+                  Goals & Expenses
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.drawerLink} onPress={() => { setIsMenuVisible(false); router.push('/debts'); }}>
                 <Ionicons name="card-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.drawerLinkText}>Debt Tracker</Text>
+                <AppText variant="body" style={styles.drawerLinkText}>
+                  Debt Tracker
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.drawerLink} onPress={() => { setIsMenuVisible(false); router.push('/plan'); }}>
                 <Ionicons name="analytics-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.drawerLinkText}>Monthly Plan</Text>
+                <AppText variant="body" style={styles.drawerLinkText}>
+                  Monthly Plan
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.drawerLink} onPress={() => { setIsMenuVisible(false); router.push('/profile'); }}>
                 <Ionicons name="person-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.drawerLinkText}>Profile & Settings</Text>
+                <AppText variant="body" style={styles.drawerLinkText}>
+                  Profile & Settings
+                </AppText>
               </TouchableOpacity>
             </ScrollView>
 
@@ -482,7 +523,9 @@ export default function DashboardScreen() {
                   }}
                 >
                   <Ionicons name="log-out-outline" size={18} color={COLORS.error} />
-                  <Text style={styles.drawerLogoutText}>Sign Out</Text>
+                  <AppText variant="body" style={styles.drawerLogoutText}>
+                    Sign Out
+                  </AppText>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -493,10 +536,14 @@ export default function DashboardScreen() {
                   }}
                 >
                   <Ionicons name="log-in-outline" size={18} color={COLORS.primary} />
-                  <Text style={styles.drawerLoginText}>Sign In / Register</Text>
+                  <AppText variant="body" style={styles.drawerLoginText}>
+                    Sign In / Register
+                  </AppText>
                 </TouchableOpacity>
               )}
-              <Text style={styles.drawerVersion}>v1.0.0 (Premium)</Text>
+              <AppText variant="caption" style={styles.drawerVersion}>
+                v1.0.0 (Premium)
+              </AppText>
             </View>
           </Animated.View>
         </View>
@@ -559,8 +606,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     overflow: 'hidden',
   },
-
-
   balanceContent: {
     position: 'relative',
     zIndex: 1,
@@ -977,6 +1022,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   drawerLogoText: {
+    ...TYPOGRAPHY.caption,
     color: COLORS.white,
     fontWeight: '800',
     fontSize: 14,

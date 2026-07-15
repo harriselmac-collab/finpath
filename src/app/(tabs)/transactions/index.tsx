@@ -15,6 +15,7 @@ import { Card } from '../../../components/ui/Card';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
+import { useTranslation } from 'react-i18next';
 import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useTransactionsStore } from '../../../store/transactionsStore';
 import { formatCurrency } from '../../../utils/currency';
@@ -31,6 +32,7 @@ interface TransactionItem {
 }
 
 export default function TransactionsScreen() {
+  const { t } = useTranslation();
   const { answers } = useOnboardingStore();
   const currencySymbol = answers['currency'] || 'MAD';
 
@@ -59,28 +61,32 @@ export default function TransactionsScreen() {
   // Open the add/edit transaction drawer when navigated with URL query params
   React.useEffect(() => {
     if (params.openForm === 'true') {
-      setShowForm(true);
-      if (params.actionType) {
-        setType(params.actionType as any);
-        if (params.actionType === 'income') {
-          setActiveTab('income');
-        } else {
-          setActiveTab('expense');
+      requestAnimationFrame(() => {
+        setShowForm(true);
+        if (params.actionType) {
+          setType(params.actionType as any);
+          if (params.actionType === 'income') {
+            setActiveTab('income');
+          } else {
+            setActiveTab('expense');
+          }
         }
-      }
+      });
     }
   }, [params.openForm, params.actionType]);
 
   // Populate form when editing a transaction
   React.useEffect(() => {
     if (editingTransactionId) {
-      const transaction = storedTransactions.find(t => t.id === editingTransactionId);
-      if (transaction) {
-        setName(transaction.name);
-        setAmount(transaction.amount.toString());
-        setType(transaction.type);
-        setCategory(transaction.category);
-      }
+      requestAnimationFrame(() => {
+        const transaction = storedTransactions.find(t => t.id === editingTransactionId);
+        if (transaction) {
+          setName(transaction.name);
+          setAmount(transaction.amount.toString());
+          setType(transaction.type);
+          setCategory(transaction.category);
+        }
+      });
     }
   }, [editingTransactionId, storedTransactions]);
 
@@ -208,11 +214,11 @@ const newTx: Omit<TransactionItem, 'id'> = {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Transactions</Text>
-            <Text style={styles.subtitle}>Track your monthly logs and cash flows</Text>
+            <Text style={styles.title}>{t('transactions.title', 'Transactions')}</Text>
+            <Text style={styles.subtitle}>{t('transactions.subtitle', 'Track your monthly logs and cash flows')}</Text>
           </View>
           <Button
-            title={showForm ? 'Close' : '+ Add'}
+            title={showForm ? t('transactions.close', 'Close') : t('transactions.add', '+ Add')}
             onPress={() => setShowForm(!showForm)}
             variant="primary"
             style={styles.headerAddBtn}
@@ -226,7 +232,7 @@ const newTx: Omit<TransactionItem, 'id'> = {
             <Input
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search transactions..."
+              placeholder={t('transactions.searchPlaceholder', 'Search transactions...')}
               containerStyle={styles.searchInput}
             />
           </View>
@@ -237,11 +243,11 @@ const newTx: Omit<TransactionItem, 'id'> = {
           <Input
             value={quickInput}
             onChangeText={setQuickInput}
-            placeholder="Quick Add (e.g. coffee 45 or rent 2500)..."
+            placeholder={t('transactions.quickAddPlaceholder', 'Quick Add (e.g. coffee 45 or rent 2500)...')}
             containerStyle={styles.quickInputStyle}
           />
           <Button
-            title="Add"
+            title={t('transactions.quickAddButton', 'Add')}
             onPress={handleQuickAdd}
             variant="secondary"
             style={styles.parseBtn}
@@ -254,7 +260,7 @@ const newTx: Omit<TransactionItem, 'id'> = {
           return (
             <View style={styles.previewBox}>
               <Text style={styles.previewText}>
-                Ready to add: <Text style={{ fontWeight: '700' }}>{parsed.name}</Text> ({parsed.category}) - <Text style={{ fontWeight: '700', color: parsed.type === 'income' ? COLORS.secondary : COLORS.textPrimary }}>{formatCurrency(parsed.amount, currencySymbol)}</Text>
+                {t('transactions.readyToAdd', { defaultValue: 'Ready to add: {{name}} ({{category}}) - {{amount}}', name: parsed.name, category: parsed.category, amount: formatCurrency(parsed.amount, currencySymbol) })}
               </Text>
             </View>
           );
@@ -263,11 +269,11 @@ const newTx: Omit<TransactionItem, 'id'> = {
         {/* Form */}
         {showForm && (
           <Card style={styles.formDrawer}>
-            <Text style={styles.formTitle}>{editingTransactionId ? 'Edit Transaction' : 'Add Transaction'}</Text>
-            <Input label="Name" value={name} onChangeText={setName} placeholder="e.g. Electric Bill" />
-            <Input label={`Amount (${currencySymbol})`} value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="numeric" />
+            <Text style={styles.formTitle}>{editingTransactionId ? t('transactions.editTitle', 'Edit Transaction') : t('transactions.addTitle', 'Add Transaction')}</Text>
+            <Input label={t('transactions.nameLabel', 'Name')} value={name} onChangeText={setName} placeholder="e.g. Electric Bill" />
+            <Input label={`${t('transactions.amountLabel', 'Amount')} (${currencySymbol})`} value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="numeric" />
 
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.label}>{t('transactions.typeLabel', 'Type')}</Text>
             <View style={styles.typesRow}>
               {['income', 'essential', 'flexible', 'debt', 'savings'].map((tType) => (
                 <TouchableOpacity
@@ -276,15 +282,15 @@ const newTx: Omit<TransactionItem, 'id'> = {
                   onPress={() => setType(tType as any)}
                 >
                   <Text style={[styles.typeText, type === tType && styles.typeTextActive]}>
-                    {tType.toUpperCase()}
+                    {t(`transactions.filters.${tType}`, tType.toUpperCase())}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Input label="Category" value={category} onChangeText={setCategory} placeholder="e.g. Utilities, Salary" />
+            <Input label={t('transactions.categoryLabel', 'Category')} value={category} onChangeText={setCategory} placeholder="e.g. Utilities, Salary" />
 
-            <Button title="Save Transaction" onPress={handleAddTransaction} variant="primary" style={styles.saveBtn} />
+            <Button title={t('transactions.saveBtn', 'Save Transaction')} onPress={handleAddTransaction} variant="primary" style={styles.saveBtn} />
           </Card>
         )}
 
@@ -294,13 +300,13 @@ const newTx: Omit<TransactionItem, 'id'> = {
             style={[styles.tabItem, activeTab === 'expense' && styles.tabItemActive]}
             onPress={() => setActiveTab('expense')}
           >
-            <Text style={[styles.tabText, activeTab === 'expense' && styles.tabTextActive]}>Expenses</Text>
+            <Text style={[styles.tabText, activeTab === 'expense' && styles.tabTextActive]}>{t('transactions.tabExpenses', 'Expenses')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'income' && styles.tabItemActive]}
             onPress={() => setActiveTab('income')}
           >
-            <Text style={[styles.tabText, activeTab === 'income' && styles.tabTextActive]}>Income</Text>
+            <Text style={[styles.tabText, activeTab === 'income' && styles.tabTextActive]}>{t('transactions.tabIncome', 'Income')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -314,7 +320,7 @@ const newTx: Omit<TransactionItem, 'id'> = {
                 onPress={() => setSelectedFilter(tab as any)}
               >
                 <Text style={[styles.chipText, selectedFilter === tab && styles.chipTextActive]}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {t(`transactions.filters.${tab}`, tab.charAt(0).toUpperCase() + tab.slice(1))}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -325,9 +331,9 @@ const newTx: Omit<TransactionItem, 'id'> = {
         {Object.keys(groupedTransactions).length === 0 ? (
           <EmptyState
             icon="receipt-outline"
-            title="No transactions found"
-            description="Try adjusting your search or add a new transaction to get started."
-            actionLabel="Add Transaction"
+            title={t('transactions.noTransactions', 'No transactions found')}
+            description={t('transactions.noTransactionsDesc', 'Try adjusting your search or add a new transaction to get started.')}
+            actionLabel={t('transactions.addTitle', 'Add Transaction')}
             onAction={() => setShowForm(true)}
           />
         ) : (

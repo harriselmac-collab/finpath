@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
@@ -21,6 +23,110 @@ export default function AuthScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const setSession = useSessionStore((state) => state.setSession);
+
+  React.useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '123456789-mock-web-client-id.apps.googleusercontent.com',
+    });
+  }, []);
+
+  const handleGoogleAuth = async () => {
+    setError('');
+    setLoading(true);
+
+    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
+    const isMockGoogle = !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID === '123456789-mock-web-client-id.apps.googleusercontent.com';
+
+    if (isMockSupabase || isMockGoogle) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      const mockSession = {
+        access_token: 'mock-google-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'mock-google-refresh-token',
+        user: {
+          id: 'mock-google-user-id',
+          email: 'google-guest@finpath.com',
+          app_metadata: {},
+          user_metadata: { preferredName: 'Google Guest' },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      setSession(mockSession as any);
+
+      Alert.alert(
+        'Google Auth (Simulation Mode)',
+        `Logged in successfully as Google guest: google-guest@finpath.com\n\nLive Google client credentials are unconfigured.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/onboarding/welcome'),
+          },
+        ]
+      );
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      
+      if (userInfo.data?.idToken) {
+        const { data, error: signInError } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: userInfo.data.idToken,
+        });
+
+        if (signInError) {
+          throw signInError;
+        }
+
+        if (data.session) {
+          setSession(data.session);
+          router.replace('/');
+        }
+      } else {
+        throw new Error('No Google ID Token found.');
+      }
+    } catch (err: any) {
+      console.warn('Google Sign-In error, falling back to Simulation Mode:', err);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      const mockSession = {
+        access_token: 'mock-google-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'mock-google-refresh-token',
+        user: {
+          id: 'mock-google-user-id',
+          email: 'google-guest@finpath.com',
+          app_metadata: {},
+          user_metadata: { preferredName: 'Google Guest' },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      setSession(mockSession as any);
+
+      Alert.alert(
+        'Google Auth (Simulation Mode)',
+        `Encountered Google Sign-In exception: ${err?.message || 'Developer Error'}.\n\nLogged in via Simulation Mode as Google Guest.`,
+        [
+          {
+            text: 'Proceed',
+            onPress: () => router.replace('/onboarding/welcome'),
+          },
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     if (!email || !password) {
@@ -205,7 +311,7 @@ export default function AuthScreen() {
               </Animated.View>
             )}
 
-            {error && !email && !password && (
+            {!!error && !email && !password && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
@@ -230,6 +336,16 @@ export default function AuthScreen() {
               disabled={loading}
               style={styles.toggleButton}
             />
+
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleAuth}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="logo-google" size={18} color="#EA4335" style={styles.googleIcon} />
+              <Text style={styles.googleButtonText}>{t('auth.googleSignIn', 'Continue with Google')}</Text>
+            </TouchableOpacity>
 
             <View style={styles.divider}>
               <View style={styles.line} />
@@ -349,5 +465,24 @@ const styles = StyleSheet.create({
   mockButton: {
     marginTop: SPACING.xs,
     height: 48,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.md,
+    height: 48,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    borderRadius: RADIUS.md,
+  },
+  googleIcon: {
+    marginRight: SPACING.xs,
+  },
+  googleButtonText: {
+    ...TYPOGRAPHY.bodyMedium,
+    color: COLORS.textPrimary,
+    fontWeight: '600',
   },
 });

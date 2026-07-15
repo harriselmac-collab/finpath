@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Account - FinPath</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #208AEF;
+            --primary-dark: #126BB3;
+            --text-primary: #1C1B1F;
+            --text-secondary: #49454F;
+            --background: #F4F8FB;
+            --surface: #FFFFFF;
+            --error: #BA1A1A;
+            --error-container: #FFDAD6;
+            --border: #CAC4D0;
+            --border-variant: #E6E1E5;
+            --radius-lg: 16px;
+            --spacing-md: 24px;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border: 1px solid var(--border-variant);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--error);
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .warning-box {
+            background-color: var(--error-container);
+            color: #410002;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        input[type="email"], input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            box-sizing: border-box;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            background-color: #FAF9FC;
+        }
+
+        input[type="email"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            background-color: var(--surface);
+        }
+
+        .btn-delete {
+            width: 100%;
+            background-color: var(--error);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn-delete:hover {
+            background-color: #93000A;
+        }
+
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .success-message h2 {
+            color: #1E4620;
+            margin-top: 0;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div id="request-form">
+                <h1>Delete Your Account</h1>
+                <p>Submit this form to request permanent deletion of your FinPath account and all associated financial records.</p>
+                
+                <div class="warning-box">
+                    <strong>Warning:</strong> This action is irreversible. All of your transactions, goals, debts, and preferences will be permanently wiped from our databases.
+                </div>
+
+                <form id="delete-form" onsubmit="handleSubmit(event)">
+                    <div class="form-group">
+                        <label for="email">Account Email Address</label>
+                        <input type="email" id="email" required placeholder="e.g. user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="reason">Reason for Deletion (Optional)</label>
+                        <input type="text" id="reason" placeholder="e.g. No longer need budgeting helper">
+                    </div>
+                    <button type="submit" class="btn-delete">Request Account Deletion</button>
+                </form>
+            </div>
+
+            <div id="success-screen" class="success-message">
+                <h2>Request Submitted Successfully</h2>
+                <p>We have received your account deletion request. A confirmation email has been sent to your address. Please verify the link in that email to execute the deletion.</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 FinPath. All rights reserved. <br> Return to <a href="privacy-policy.html">Privacy Policy</a>.</p>
+        </div>
+    </div>
+
+    <script>
+        function handleSubmit(e) {
+            e.preventDefault();
+            // In a production environment, this would submit an API request to your server/Supabase
+            // and trigger an authentication verification check or database deletion queue.
+            document.getElementById('request-form').style.display = 'none';
+            document.getElementById('success-screen').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

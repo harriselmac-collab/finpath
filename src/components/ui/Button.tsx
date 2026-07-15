@@ -1,15 +1,17 @@
+// src/components/ui/Button.tsx
 /* eslint-disable react-hooks/immutability */
 import React from 'react';
 import {
   Pressable,
-  Text,
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
   TextStyle,
+  StyleProp,
   GestureResponderEvent,
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import AppText from '../../components/Text/AppText';
 
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 
@@ -19,8 +21,8 @@ export interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'text' | 'destructive';
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -36,8 +38,8 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   const scale = useSharedValue(1);
 
-  const getButtonStyles = (): ViewStyle[] => {
-    const stylesList: ViewStyle[] = [styles.baseButton];
+  const getButtonStyles = (): any[] => {
+    const stylesList: any[] = [styles.baseButton];
 
     switch (variant) {
       case 'primary':
@@ -65,8 +67,8 @@ export const Button: React.FC<ButtonProps> = ({
     return stylesList;
   };
 
-  const getTextStyle = (): TextStyle[] => {
-    const stylesList: TextStyle[] = [styles.baseText];
+  const getTextStyle = (): any[] => {
+    const stylesList: any[] = [TYPOGRAPHY.button]; // Base button typography
 
     switch (variant) {
       case 'primary':
@@ -125,10 +127,12 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' || variant === 'destructive' ? COLORS.white : COLORS.primary}
+          color={variant === 'primary' || variant === 'destructive' ? '#fff' : COLORS.primary}
         />
       ) : (
-        <Text style={getTextStyle()}>{title}</Text>
+        <AppText variant="button" style={getTextStyle()}>
+          {title}
+        </AppText>
       )}
     </AnimatedPressable>
   );
@@ -162,9 +166,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: COLORS.outlineVariant,
     borderColor: COLORS.outlineVariant,
-  },
-  baseText: {
-    ...TYPOGRAPHY.buttonText,
   },
   primaryText: {
     color: COLORS.white,

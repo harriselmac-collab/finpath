@@ -7,6 +7,7 @@ export interface GoalInput {
   targetDate: string; // YYYY-MM-DD
   isEssential: boolean;
   classification?: 'essential' | 'important' | 'optional';
+  emoji?: string;
 }
 
 export interface GoalCalculationsOutput {

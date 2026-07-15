@@ -10,7 +10,18 @@ export interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ children, style, shadow = 'md' }) => {
-  return <View style={[styles.card, shadow !== 'none' && SHADOWS[shadow], style]}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.card,
+        shadow !== 'none' && SHADOWS[shadow],
+        shadow !== 'none' && { borderWidth: 0 },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 };
 
 export interface SelectionCardProps {
@@ -105,22 +116,26 @@ export const AlertCard: React.FC<AlertCardProps> = ({
       case 'info':
         return {
           backgroundColor: COLORS.surfaceContainerLow,
-          borderColor: COLORS.outlineVariant,
+          borderLeftColor: COLORS.onPrimaryContainer,
+          borderColor: 'rgba(7, 30, 61, 0.04)',
         };
       case 'success':
         return {
           backgroundColor: '#EAF8EF',
-          borderColor: COLORS.emerald,
+          borderLeftColor: COLORS.emerald,
+          borderColor: 'rgba(72, 199, 116, 0.1)',
         };
       case 'warning':
         return {
           backgroundColor: '#FFF8EA',
-          borderColor: COLORS.warning,
+          borderLeftColor: COLORS.warning,
+          borderColor: 'rgba(245, 185, 66, 0.1)',
         };
       case 'danger':
         return {
           backgroundColor: '#FFF2F2',
-          borderColor: COLORS.error,
+          borderLeftColor: COLORS.error,
+          borderColor: 'rgba(186, 26, 26, 0.1)',
         };
     }
   };
@@ -148,22 +163,70 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   );
 };
 
+export interface PressableCardProps {
+  children: React.ReactNode;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+  shadow?: 'sm' | 'md' | 'lg' | 'none';
+}
+
+export const PressableCard: React.FC<PressableCardProps> = ({
+  children,
+  onPress,
+  style,
+  shadow = 'md',
+}) => {
+  const scale = useSharedValue(1);
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, { damping: 12, stiffness: 250 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 250 });
+  };
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+    };
+  });
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[
+        styles.card,
+        shadow !== 'none' && SHADOWS[shadow],
+        shadow !== 'none' && { borderWidth: 0 },
+        style,
+        animatedStyle,
+      ]}
+      accessibilityRole="button"
+    >
+      {children}
+    </AnimatedPressable>
+  );
+};
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
+    borderColor: 'rgba(7, 30, 61, 0.08)',
   },
   selectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: 'rgba(7, 30, 61, 0.08)',
+    borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     height: 56,
@@ -198,9 +261,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.emerald,
   },
   alertCard: {
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.sm,
     padding: SPACING.md,
     borderWidth: 1,
+    borderLeftWidth: 5,
     marginBottom: SPACING.md,
   },
   alertTitle: {
