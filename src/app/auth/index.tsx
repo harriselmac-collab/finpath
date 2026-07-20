@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { supabase } from '../../services/supabase/supabaseClient';
 import { useSessionStore } from '../../store/sessionStore';
+import { createMockSession, MOCK_SESSION_DELAY } from '../../mocks/supabaseMock';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -38,23 +39,8 @@ export default function AuthScreen() {
     const isMockGoogle = !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID === '123456789-mock-web-client-id.apps.googleusercontent.com';
 
     if (isMockSupabase || isMockGoogle) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      const mockSession = {
-        access_token: 'mock-google-access-token',
-        token_type: 'bearer',
-        expires_in: 3600,
-        refresh_token: 'mock-google-refresh-token',
-        user: {
-          id: 'mock-google-user-id',
-          email: 'google-guest@finpath.com',
-          app_metadata: {},
-          user_metadata: { preferredName: 'Google Guest' },
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        },
-      };
-
+      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+      const mockSession = createMockSession('google-guest@finpath.com', 'mock-google-user-id', 'Google Guest');
       setSession(mockSession as any);
 
       Alert.alert(
@@ -94,23 +80,8 @@ export default function AuthScreen() {
       }
     } catch (err: any) {
       console.warn('Google Sign-In error, falling back to Simulation Mode:', err);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      
-      const mockSession = {
-        access_token: 'mock-google-access-token',
-        token_type: 'bearer',
-        expires_in: 3600,
-        refresh_token: 'mock-google-refresh-token',
-        user: {
-          id: 'mock-google-user-id',
-          email: 'google-guest@finpath.com',
-          app_metadata: {},
-          user_metadata: { preferredName: 'Google Guest' },
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        },
-      };
-
+      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+      const mockSession = createMockSession('google-guest@finpath.com', 'mock-google-user-id', 'Google Guest');
       setSession(mockSession as any);
 
       Alert.alert(
@@ -144,23 +115,8 @@ export default function AuthScreen() {
     const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
 
     if (isMockSupabase) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      const mockSession = {
-        access_token: 'mock-access-token',
-        token_type: 'bearer',
-        expires_in: 3600,
-        refresh_token: 'mock-refresh-token',
-        user: {
-          id: 'mock-user-id',
-          email: email,
-          app_metadata: {},
-          user_metadata: { preferredName: email.split('@')[0] },
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        },
-      };
-
+      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+      const mockSession = createMockSession(email, 'mock-user-id', email.split('@')[0]);
       setSession(mockSession as any);
 
       Alert.alert(
@@ -215,23 +171,8 @@ export default function AuthScreen() {
       }
     } catch (err: any) {
       console.warn('Supabase Auth error, falling back to Simulation Mode:', err);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      
-      const mockSession = {
-        access_token: 'mock-access-token',
-        token_type: 'bearer',
-        expires_in: 3600,
-        refresh_token: 'mock-refresh-token',
-        user: {
-          id: 'mock-user-id',
-          email: email,
-          app_metadata: {},
-          user_metadata: { preferredName: email.split('@')[0] },
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        },
-      };
-
+      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+      const mockSession = createMockSession(email, 'mock-user-id', email.split('@')[0]);
       setSession(mockSession as any);
 
       Alert.alert(
@@ -366,7 +307,6 @@ export default function AuthScreen() {
     </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

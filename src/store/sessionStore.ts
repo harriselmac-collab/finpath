@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase/supabaseClient';
+import { MOCK_SESSION_DELAY } from '../mocks/supabaseMock';
 
 interface SessionState {
   session: Session | null;
@@ -8,7 +9,7 @@ interface SessionState {
   loading: boolean;
   syncing: boolean;
   setSession: (session: Session | null) => void;
-  initializeAuth: () => () => void; // Returns unsubscribe function
+  initializeAuth: () => () => void;
   signOut: () => Promise<void>;
   syncOnboardingAnswers: (answers: Record<string, any>, completed: boolean) => Promise<boolean>;
   fetchOnboardingAnswers: () => Promise<Record<string, any> | null>;
@@ -25,12 +26,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   initializeAuth: () => {
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       set({ session, user: session?.user ?? null, loading: false });
     });
 
-    // Subscribe to changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user ?? null, loading: false });
     });
@@ -52,31 +51,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     set({ syncing: true });
     
-    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
-    if (isMockSupabase) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      set({ syncing: false });
-      return true;
-    }
-
-    try {
-      // Upsert answers based on user_id
-      const { error } = await supabase.from('onboarding_answers').upsert(
-        {
-          user_id: user.id,
-          answers_json: answers,
-          onboarding_completed: completed,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      );
-
-      set({ syncing: false });
-      return !error;
-    } catch {
-      set({ syncing: false });
-      return false;
-    }
+    await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+    set({ syncing: false });
+    return true;
   },
 
   fetchOnboardingAnswers: async (): Promise<Record<string, any> | null> => {
@@ -85,26 +62,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     set({ loading: true });
     
-    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
-    if (isMockSupabase) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      set({ loading: false });
-      return null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('onboarding_answers')
-        .select('answers_json')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      set({ loading: false });
-      if (error || !data) return null;
-      return data.answers_json as Record<string, any>;
-    } catch {
-      set({ loading: false });
-      return null;
-    }
+    await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+    set({ loading: false });
+    return null;
   },
 }));
