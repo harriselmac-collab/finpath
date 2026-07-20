@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, TouchableOpacity, GestureResponderEvent } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, GestureResponderEvent, Dimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Line, Text as SvgText, Circle, G } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedProps, withTiming, FadeInUp, withDelay } from 'react-native-reanimated';
+import Animated, { useSharedValue, withTiming, FadeInUp, withDelay } from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
 import { formatCurrency } from '../../utils/currency';
 import { useTransactionsStore } from '../../store/transactionsStore';
@@ -19,37 +19,107 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
 }) => {
   const router = useRouter();
   const { getMonthlyTotals } = useTransactionsStore();
-  const { width: windowWidth } = useWindowDimensions();
-  const containerWidth = windowWidth - 40; // Approximate padding
+  const [windowWidth, setWindowWidth] = useState(() => {
+    try {
+      const { width } = require('react-native').Dimensions.get('window');
+      return width;
+    } catch {
+      return 320;
+    }
+  });
+  const containerWidth = windowWidth - 40;
   const chartWidth = Math.min(containerWidth, 400);
 
-  // Process monthly data
-  const [chartData, setChartData] = useState<{
-    months: string[];
-    amounts: number[]
-  }>({ months: [], amounts: [] });
-
-  useEffect(() => {
+  // Process monthly data once
+  const chartData = useMemo(() => {
     const monthlyData = getMonthlyTotals();
     const months = Object.keys(monthlyData);
-
-    // Sort by date (simple lexical sort works for "Jan 2026" format)
     months.sort((a, b) => {
       const dateA = new Date(`1 ${a}`);
       const dateB = new Date(`1 ${b}`);
       return dateA.getTime() - dateB.getTime();
     });
+    const amounts = months.map((month) => monthlyData[month]);
+    return { months, amounts };
+  }, [getMonthlyTotals]);
 
-    const amounts = months.map((month) => {
-      // Amounts can be negative (expenses) or positive (income)
-      return monthlyData[month];
+  useEffect(() => {
+    const { Dimensions } = require('react-native');
+    const addListener = (Dimensions as any).addEventListener;
+    const subscription = addListener?.('change', (e: any) => {
+      setWindowWidth(e?.window?.width ?? windowWidth);
     });
-
-    setChartData({
-      months,
-      amounts,
-    });
+    return () => subscription?.remove?.();
   }, []);
+
+  const { maxVal, minVal, valRange, paddedMin, paddedMax, points, path } = useMemo(() => {
+    const amounts = chartData.amounts;
+    if (amounts.length < 2) {
+      return {
+        maxVal: 0, minVal: 0, valRange: 1, paddedMin: 0, paddedMax: 0,
+        points: [], path: '',
+      };
+    }
+
+    const maxValLocal = Math.max(...amounts, 0);
+    const minValLocal = Math.min(...amounts, 0);
+    const valRangeLocal = Math.max(maxValLocal - minValLocal, 1);
+    const paddedMinLocal = minValLocal - Math.abs(minValLocal) * 0.1;
+    const paddedMaxLocal = maxValLocal + Math.abs(maxValLocal) * 0.1;
+
+    const usableWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
+    const usableHeight = CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM;
+
+    const pts = amounts.map((val, idx) => ({
+      x: CHART_PADDING_LEFT + (idx / Math.max(amounts.length - 1, 1)) * usableWidth,
+      y: CHART_PADDING_TOP + usableHeight - ((val - paddedMinLocal) / (paddedMaxLocal - paddedMinLocal)) * usableHeight,
+    }));
+
+    let pathD = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i - 1];
+      const curr = pts[i];
+      const cpX1 = prev.x + (curr.x - prev.x) / 2;
+      const cpX2 = prev.x + (curr.x - prev.x) / 2;
+      pathD += ` C ${cpX1} ${prev.y}, ${cpX2} ${curr.y}, ${curr.x} ${curr.y}`;
+    }
+
+    return { maxVal: maxValLocal, minVal: minValLocal, valRange: valRangeLocal, paddedMin: paddedMinLocal, paddedMax: paddedMaxLocal, points: pts, path: pathD };
+  }, [chartData, chartWidth]);
+
+  const drawProgress = useSharedValue(0);
+  const pointOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    drawProgress.value = 0;
+    pointOpacity.value = 0;
+    drawProgress.value = withTiming(1, { duration: 800 });
+    pointOpacity.value = withDelay(600, withTiming(1, { duration: 300 }));
+  }, [chartData]);
+
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const handleTouch = (event: GestureResponderEvent) => {
+    const touchX = event.nativeEvent.locationX;
+    const usableWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
+    const relativeX = touchX - CHART_PADDING_LEFT;
+    const progress = Math.max(0, Math.min(1, relativeX / usableWidth));
+    const index = Math.min(Math.floor(progress * (chartData.months.length - 1)), chartData.months.length - 1);
+    setHoveredIndex(index >= 0 ? index : null);
+  };
+
+  const handleTouchRelease = () => setHoveredIndex(null);
+
+  // Pre-format grid labels once
+  const gridLabels = useMemo(() => {
+    if (!points.length) return [];
+    return [-1, -0.5, 0, 0.5, 1].map((ratio) => {
+      const val = paddedMin + ratio * (paddedMax - paddedMin);
+      const y = CHART_PADDING_TOP + ((1 - ratio) * (CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM));
+      const formatted = val === 0 ? '0' : `${val >= 0 ? '+' : '-'}${formatCurrency(Math.abs(val), currencySymbol).split('.')[0]}`;
+      return { val, y, formatted };
+    });
+  }, [points.length, paddedMin, paddedMax, currencySymbol]);
 
   if (chartData.months.length === 0) {
     return (
@@ -75,80 +145,6 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
     );
   }
 
-  const maxVal = Math.max(...chartData.amounts, 0);
-  const minVal = Math.min(...chartData.amounts, 0);
-  const valRange = Math.max(maxVal - minVal, 1); // Avoid division by zero
-
-  // Add padding to min/max for better visualization
-  const paddedMin = minVal - Math.abs(minVal) * 0.1;
-  const paddedMax = maxVal + Math.abs(maxVal) * 0.1;
-  const paddedRange = paddedMax - paddedMin;
-
-  // Reanimated drawing progress
-  const drawProgress = useSharedValue(0);
-  const pointOpacity = useSharedValue(0);
-
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
-  const handleTouch = (event: GestureResponderEvent) => {
-    const touchX = event.nativeEvent.locationX;
-    const usableWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-    const relativeX = touchX - CHART_PADDING_LEFT;
-    const progress = Math.max(0, Math.min(1, relativeX / usableWidth));
-    const index = Math.min(Math.floor(progress * (chartData.months.length - 1)), chartData.months.length - 1);
-    setHoveredIndex(index >= 0 ? index : null);
-  };
-
-  const handleTouchRelease = () => {
-    setHoveredIndex(null);
-  };
-
-  useEffect(() => {
-    drawProgress.value = 0;
-    pointOpacity.value = 0;
-    drawProgress.value = withTiming(1, { duration: 800 });
-    pointOpacity.value = withDelay(600, withTiming(1, { duration: 300 }));
-  }, [chartData]);
-
-  const animatedPointProps = useAnimatedProps(() => {
-    return {
-      opacity: pointOpacity.value,
-    };
-  });
-
-  // Generate coordinates for points
-  const getCoordinates = (index: number, value: number) => {
-    const usableWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-    const usableHeight = CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM;
-
-    const x = CHART_PADDING_LEFT + (index / Math.max(chartData.months.length - 1, 1)) * usableWidth;
-    const y = CHART_PADDING_TOP + usableHeight - ((value - paddedMin) / paddedRange) * usableHeight;
-    return { x, y };
-  };
-
-  // Generate SVG path for line
-  const generatePath = () => {
-    if (chartData.amounts.length < 2) return '';
-
-    const points = chartData.amounts.map((val, idx) => getCoordinates(idx, val));
-    let pathD = `M ${points[0].x} ${points[0].y}`;
-
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      // Simple curve - in future could use proper curves
-      const cpX1 = prev.x + (curr.x - prev.x) / 2;
-      const cpY1 = prev.y;
-      const cpX2 = prev.x + (curr.x - prev.x) / 2;
-      const cpY2 = curr.y;
-      pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${curr.x} ${curr.y}`;
-    }
-
-    return pathD;
-  };
-
-  const path = generatePath();
-
   return (
     <Animated.View entering={FadeInUp.duration(400)} style={styles.chartContainer}>
       <Text style={styles.chartTitle}>Monthly Net Flow</Text>
@@ -165,47 +161,30 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
       >
         <Svg width={chartWidth} height={CHART_HEIGHT}>
           {/* Y Grid lines & Labels */}
-          {[-1, -0.5, 0, 0.5, 1].map((ratio) => {
-            const val = paddedMin + ratio * paddedRange;
-            const y = CHART_PADDING_TOP + ((1 - ratio) * (CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM));
-            return (
-              <G key={`y-${val}`}>
-                <Line
-                  x1={CHART_PADDING_LEFT}
-                  y1={y}
-                  x2={chartWidth - CHART_PADDING_RIGHT}
-                  y2={y}
-                  stroke={COLORS.border}
-                  strokeWidth={1}
-                  strokeDasharray={val === 0 ? '2,2' : '4,4'}
-                />
-                {val !== 0 && (
-                  <SvgText
-                    x={CHART_PADDING_LEFT - 8}
-                    y={y + 4}
-                    fontSize={8}
-                    fill={val >= 0 ? COLORS.secondary : COLORS.error}
-                    textAnchor="end"
-                  >
-                    {`${val >= 0 ? '+' : ''}${formatCurrency(Math.abs(val), currencySymbol).split('.')[0]}`}
-                  </SvgText>
-                )}
-              </G>
-            );
-          })}
+          {gridLabels.map(({ val, y, formatted }) => (
+            <G key={`y-${val}`}>
+              <Line
+                x1={CHART_PADDING_LEFT}
+                y1={y}
+                x2={chartWidth - CHART_PADDING_RIGHT}
+                y2={y}
+                stroke={COLORS.border}
+                strokeWidth={1}
+                strokeDasharray={val === 0 ? '2,2' : '4,4'}
+              />
+              {val !== 0 && (
+                <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontSize={8} fill={val >= 0 ? COLORS.secondary : COLORS.error} textAnchor="end">
+                  {formatted}
+                </SvgText>
+              )}
+            </G>
+          ))}
 
           {/* X Axis Labels (Months) */}
           {chartData.months.map((month, idx) => {
             const x = CHART_PADDING_LEFT + (idx / Math.max(chartData.months.length - 1, 1)) * (chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT);
             return (
-              <SvgText
-                key={month}
-                x={x}
-                y={CHART_HEIGHT - 6}
-                fontSize={9}
-                fill={COLORS.textSecondary}
-                textAnchor="middle"
-              >
+              <SvgText key={month} x={x} y={CHART_HEIGHT - 6} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">
                 {month}
               </SvgText>
             );
@@ -222,70 +201,46 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
           )}
 
           {/* Points */}
-          {chartData.amounts.map((amount, idx) => {
-            const point = getCoordinates(idx, amount);
-            return (
-              <G key={idx}>
-                <Circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={4}
-                  fill={amount >= 0 ? COLORS.secondary : COLORS.error}
-                />
-              </G>
-            );
-          })}
+          {points.map((point, idx) => (
+            <G key={idx}>
+              <Circle cx={point.x} cy={point.y} r={4} fill={chartData.amounts[idx] >= 0 ? COLORS.secondary : COLORS.error} />
+            </G>
+          ))}
 
-          {/* Hover info */}
+          {/* Hover guide */}
           {hoveredIndex !== null && hoveredIndex < chartData.months.length && (
             <G>
               <Line
-                x1={getCoordinates(hoveredIndex, 0).x}
+                x1={points[hoveredIndex].x}
                 y1={CHART_PADDING_TOP}
-                x2={getCoordinates(hoveredIndex, 0).x}
+                x2={points[hoveredIndex].x}
                 y2={CHART_HEIGHT - CHART_PADDING_BOTTOM}
                 stroke={COLORS.textSecondary}
                 strokeWidth={1}
                 strokeDasharray="3 3"
               />
-              <Circle
-                cx={getCoordinates(hoveredIndex, chartData.amounts[hoveredIndex]).x}
-                cy={getCoordinates(hoveredIndex, chartData.amounts[hoveredIndex]).y}
-                r={6}
-                fill={chartData.amounts[hoveredIndex] >= 0 ? COLORS.secondary : COLORS.error}
-                stroke={COLORS.white}
-                strokeWidth={2}
-              />
+              <Circle cx={points[hoveredIndex].x} cy={points[hoveredIndex].y} r={6} fill={chartData.amounts[hoveredIndex] >= 0 ? COLORS.secondary : COLORS.error} stroke={COLORS.white} strokeWidth={2} />
             </G>
           )}
-
-          {hoveredIndex !== null && hoveredIndex < chartData.months.length && (
-            <View
-              style={[
-                styles.tooltip,
-                {
-                  left: Math.max(
-                    CHART_PADDING_LEFT,
-                    Math.min(
-                      getCoordinates(hoveredIndex, 0).x - 80,
-                      chartWidth - CHART_PADDING_RIGHT - 160
-                    )
-                  ),
-                  top: Math.max(CHART_PADDING_TOP - 10, getCoordinates(hoveredIndex, 0).y - 50),
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <Text style={styles.tooltipMonth}>{chartData.months[hoveredIndex]}</Text>
-              <Text style={[
-                styles.tooltipAmount,
-                chartData.amounts[hoveredIndex] >= 0 ? { color: COLORS.secondary } : { color: COLORS.error }
-              ]}>
-                {chartData.amounts[hoveredIndex] >= 0 ? '+' : '-'}{formatCurrency(Math.abs(chartData.amounts[hoveredIndex]), currencySymbol)}
-              </Text>
-            </View>
-          )}
         </Svg>
+
+        {hoveredIndex !== null && hoveredIndex < chartData.months.length && points[hoveredIndex] && (
+          <View
+            style={[
+              styles.tooltip,
+              {
+                left: Math.max(CHART_PADDING_LEFT, Math.min(points[hoveredIndex].x - 80, chartWidth - CHART_PADDING_RIGHT - 160)),
+                top: Math.max(CHART_PADDING_TOP - 10, points[hoveredIndex].y - 50),
+              },
+            ]}
+            pointerEvents="none"
+          >
+            <Text style={styles.tooltipMonth}>{chartData.months[hoveredIndex]}</Text>
+            <Text style={[styles.tooltipAmount, chartData.amounts[hoveredIndex] >= 0 ? { color: COLORS.secondary } : { color: COLORS.error }]}>
+              {chartData.amounts[hoveredIndex] >= 0 ? '+' : '-'}{formatCurrency(Math.abs(chartData.amounts[hoveredIndex]), currencySymbol)}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Zero line indicator */}
