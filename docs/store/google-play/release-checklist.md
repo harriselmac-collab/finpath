@@ -6,19 +6,23 @@
 - [x] `npx expo install --check` (dependencies match Expo SDK 57)
 - [x] `npx tsc --noEmit`
 - [x] `npm run lint`
-- [x] `npm test -- --runInBand` (29 suites, 136 tests)
+- [x] `npm test -- --runInBand` (30 suites, 138 tests)
 - [x] `npx expo export --platform web --clear` (47 static routes)
 - [x] Clean Android prebuild and inspect the merged release manifest.
+- [x] Build and install a debug Android APK on the API 37 emulator; verify a cold start without native or JavaScript errors.
 - [ ] Build a signed production AAB with EAS and install an internal-test APK on a physical Android device.
 
 ## Runtime checks
 
-- [ ] Guest onboarding, income date picker and dashboard layout.
+- [x] Guest welcome, language selection and first onboarding step; dashboard layout after native Google sign-in.
+- [ ] Complete guest onboarding and verify the income date picker through plan completion.
 - [ ] Email sign-up, verification, sign-in, password recovery and password update deep link.
-- [ ] Google sign-in with the release package and signing certificate.
+- [x] Google sign-in with the debug package and debug signing certificate.
+- [ ] Google sign-in with the signed release package and production signing certificate.
 - [ ] Create/edit/delete transactions, bills, debts and goals; restart the app; verify persistence and synchronization.
 - [ ] Offline edits followed by reconnect and conflict synchronization.
-- [ ] Light/dark mode, all nine languages, Arabic RTL/Cairo typography, font scaling and reduced motion.
+- [x] Native system light/dark startup and the language selector's flag rendering.
+- [ ] All nine languages, Arabic RTL/Cairo typography, font scaling and reduced motion.
 - [ ] Profile image upload/change/remove.
 - [ ] JSON data export opens the native share sheet.
 - [ ] Account deletion removes remote and local data.
