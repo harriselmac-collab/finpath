@@ -1,5 +1,5 @@
 import { expect, jest, test } from '@jest/globals';
-import { encryptedFinancialStorage } from '../services/storage/encryptedStorage';
+import { base64ToBytes, encryptedFinancialStorage } from '../services/storage/encryptedStorage';
 
 const mockMemory = new Map<string, string>();
 
@@ -24,4 +24,8 @@ test('encrypts new values and safely migrates legacy plaintext', async () => {
   await expect(encryptedFinancialStorage.getItem('legacy')).resolves.toBe('old financial data');
   expect(mockMemory.get('legacy')).toMatch(/^enc:v1:/);
   expect(mockMemory.get('legacy')).not.toContain('old financial data');
+});
+
+test('decodes stored base64 into the byte shape required by Expo Crypto on Android', () => {
+  expect(Array.from(base64ToBytes('AAECA/8='))).toEqual([0, 1, 2, 3, 255]);
 });

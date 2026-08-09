@@ -35,9 +35,35 @@ describe('focused UX corrections', () => {
     expect(transactions).toContain("router.push('/transaction-form')");
     expect(transactions).toContain('leadingIcon={<Ionicons name="search"');
     expect(transactions).toContain('chipScrollRef.current?.scrollTo');
+    ['shopping-basket', 'payments', 'local-gas-station', 'medical-services']
+      .forEach((invalidIcon) => expect(transactions).not.toContain(`'${invalidIcon}'`));
     expect(form).toContain('KeyboardAvoidingView');
+    expect(form).toContain('Keyboard.isVisible()');
+    expect(form).toContain('TextInput.State.currentlyFocusedInput()');
     expect(form).toContain('SafeAreaView');
     expect(source('app/_layout.tsx')).toContain('<Stack.Screen name="transaction-form" />');
+  });
+
+  test('dismisses the Android keyboard without navigating away from an active form', () => {
+    const input = source('components/ui/Input.tsx');
+    expect(input).toContain("BackHandler.addEventListener('hardwareBackPress'");
+    expect(input).toContain('Keyboard.dismiss()');
+    expect(input).toContain("returnKeyType={multiline ? 'default' : 'done'}");
+  });
+
+  test('does not process a live Android photo-picker result twice', () => {
+    const editProfile = source('app/profile/edit.tsx');
+    expect(editProfile).toContain('const launchedPhotoPicker = useRef(false);');
+    expect(editProfile).toContain('launchedPhotoPicker.current = true;');
+    expect(editProfile).toContain('|| launchedPhotoPicker.current');
+  });
+
+  test('lets users correct an existing debt without deleting it first', () => {
+    const debts = source('app/debts/index.tsx');
+    expect(debts).toContain('handleEditDebt');
+    expect(debts).toContain('updateDebt(editingDebtIndex, newDebt)');
+    expect(debts).toContain('accessibilityLabel="Edit debt account"');
+    expect(debts).toContain("'Update Debt Account'");
   });
 
   test('renders five real quick actions and no fake sixth action', () => {

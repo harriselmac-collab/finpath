@@ -167,6 +167,11 @@ export const DARK_COLORS: Record<keyof typeof LIGHT_COLORS, string> = {
 export type ThemeMode = 'light' | 'dark';
 type ThemeColorKey = keyof typeof LIGHT_COLORS;
 
+// Expo Compose views do not accept React Native PlatformColor objects.
+// Use this at native-module boundaries that require a concrete color value.
+export const getThemeHexColor = (key: ThemeColorKey, mode: ThemeMode): string =>
+  (mode === 'dark' ? DARK_COLORS : LIGHT_COLORS)[key];
+
 const resolveThemeColor = (key: ThemeColorKey): string => {
   const light = LIGHT_COLORS[key];
   const dark = DARK_COLORS[key];

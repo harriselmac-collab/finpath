@@ -13,6 +13,15 @@ const PREFIX = 'enc:v1:';
 
 let keyPromise: Promise<AESEncryptionKey> | null = null;
 
+export const base64ToBytes = (encoded: string): Uint8Array => {
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+};
+
 const getKey = () => {
   keyPromise ??= (async () => {
     const encoded = await SecureStore.getItemAsync(KEY_NAME);
@@ -31,13 +40,27 @@ const encrypt = async (value: string) => {
 };
 
 const decrypt = async (value: string) => {
-  const sealed = AESSealedData.fromCombined(value.slice(PREFIX.length));
+  // Expo Crypto's Android bridge currently rejects a base64 string here even
+  // though the TypeScript API accepts one. Passing bytes works on every target.
+  const sealed = AESSealedData.fromCombined(base64ToBytes(value.slice(PREFIX.length)));
   const plaintext = await aesDecryptAsync(sealed, await getKey());
   return new TextDecoder().decode(plaintext as Uint8Array);
 };
 
+const webFinancialStorage = {
+  getItem: (name: string) => typeof window === 'undefined'
+    ? Promise.resolve(null)
+    : AsyncStorage.getItem(name),
+  setItem: (name: string, value: string) => typeof window === 'undefined'
+    ? Promise.resolve()
+    : AsyncStorage.setItem(name, value),
+  removeItem: (name: string) => typeof window === 'undefined'
+    ? Promise.resolve()
+    : AsyncStorage.removeItem(name),
+};
+
 export const encryptedFinancialStorage = Platform.OS === 'web'
-  ? AsyncStorage
+  ? webFinancialStorage
   : {
       getItem: async (name: string) => {
         const stored = await AsyncStorage.getItem(name);

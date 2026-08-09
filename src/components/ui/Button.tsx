@@ -129,13 +129,16 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <AnimatedPressable
+      key={loading ? 'loading' : 'idle'}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled || loading}
       style={[...getButtonStyles(), animatedStyle]}
       accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      accessibilityState={loading
+        ? { disabled: true, busy: true }
+        : { disabled }}
     >
       {loading ? (
         <ActivityIndicator

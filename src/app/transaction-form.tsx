@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,12 @@ export default function TransactionFormScreen() {
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      const focusedInput = TextInput.State.currentlyFocusedInput();
+      if (Keyboard.isVisible() || focusedInput) {
+        focusedInput?.blur();
+        Keyboard.dismiss();
+        return true;
+      }
       close();
       return true;
     });

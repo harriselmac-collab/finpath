@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { Ionicons } from '@expo/vector-icons';
 
 import AppText from '../Text/AppText';
-import { COLORS, RADIUS, SPACING } from '../../constants/theme';
+import { COLORS, getThemeHexColor, RADIUS, SPACING } from '../../constants/theme';
 
 type Props = {
   value: string;
@@ -27,6 +27,7 @@ const toIsoDate = (date: Date) => {
 
 export function IncomeDatePicker({ value, locale, label, onChange }: Props) {
   const [visible, setVisible] = useState(false);
+  const colorScheme = useColorScheme();
   const selectedDate = toDate(value);
   const formattedDate = value
     ? new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(selectedDate)
@@ -63,7 +64,7 @@ export function IncomeDatePicker({ value, locale, label, onChange }: Props) {
           presentation={Platform.OS === 'android' ? 'dialog' : 'inline'}
           minimumDate={new Date()}
           locale={locale.replace('-', '_')}
-          accentColor={COLORS.surfaceTint}
+          accentColor={getThemeHexColor('surfaceTint', colorScheme === 'dark' ? 'dark' : 'light')}
           onValueChange={(_, date) => {
             onChange(toIsoDate(date));
             if (Platform.OS === 'android') setVisible(false);

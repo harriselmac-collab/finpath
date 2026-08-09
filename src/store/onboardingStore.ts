@@ -153,6 +153,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       name: 'finpath-onboarding-storage',
       storage: createJSONStorage(() => encryptedFinancialStorage),
       version: 5,
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) console.error('Failed to restore onboarding data', error);
+      },
       migrate: (persisted: any) => {
         if (persisted?.dataByOwner) {
           const activeOwnerId = persisted.activeOwnerId || 'local';

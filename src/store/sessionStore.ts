@@ -9,7 +9,34 @@ import { useNotificationPreferencesStore } from './notificationPreferencesStore'
 
 export const LOCAL_OWNER_ID = 'local';
 
-const setActiveFinancialOwner = (ownerId: string | null) => {
+const financialStores = [
+  useTransactionsStore,
+  useGoalsStore,
+  useBillsStore,
+  useOnboardingStore,
+  useNotificationPreferencesStore,
+] as const;
+
+let financialHydrationPromise: Promise<void> | null = null;
+let ownerRequestVersion = 0;
+
+const ensureFinancialStoresHydrated = () => {
+  financialHydrationPromise ??= Promise.all(
+    financialStores.map((store) => (
+      store.persist.hasHydrated() ? Promise.resolve() : store.persist.rehydrate()
+    )),
+  ).then(() => undefined).catch((error) => {
+    financialHydrationPromise = null;
+    throw error;
+  });
+  return financialHydrationPromise;
+};
+
+const setActiveFinancialOwner = async (ownerId: string | null) => {
+  const requestVersion = ++ownerRequestVersion;
+  await ensureFinancialStoresHydrated();
+  if (requestVersion !== ownerRequestVersion) return;
+
   const effectiveOwnerId = ownerId || LOCAL_OWNER_ID;
   useTransactionsStore.getState().setActiveOwner(effectiveOwnerId);
   useGoalsStore.getState().setActiveOwner(effectiveOwnerId);
@@ -49,7 +76,7 @@ interface SessionState {
   authStatus: AuthStatus;
   authError: string | null;
   syncing: boolean;
-  setSession: (session: Session | null) => void;
+  setSession: (session: Session | null) => Promise<void>;
   initializeAuth: () => () => void;
   signOut: () => Promise<void>;
   syncOnboardingAnswers: (answers: Record<string, any>, completed: boolean) => Promise<boolean>;
@@ -64,8 +91,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   authError: null,
   syncing: false,
 
-  setSession: (session) => {
-    setActiveFinancialOwner(session?.user.id ?? null);
+  setSession: async (session) => {
+    await setActiveFinancialOwner(session?.user.id ?? null);
     set({
       session,
       user: session?.user ?? null,
@@ -77,12 +104,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   initializeAuth: () => {
     if (!isSupabaseConfigured) {
-      set({
-        session: null,
-        user: null,
-        loading: false,
-        authStatus: 'serviceUnavailable',
-        authError: 'Authentication service is not configured.',
+      void setActiveFinancialOwner(null).finally(() => {
+        set({
+          session: null,
+          user: null,
+          loading: false,
+          authStatus: 'serviceUnavailable',
+          authError: 'Authentication service is not configured.',
+        });
       });
       return () => {};
     }
@@ -90,6 +119,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ loading: true, authStatus: 'loading', authError: null });
     void supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
+        await setActiveFinancialOwner(null);
         set({ session: null, user: null, loading: false, authStatus: 'error', authError: error.message });
         return;
       }
@@ -97,7 +127,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const { error: validationError } = await supabase.auth.getUser();
         if (validationError) {
           if (!shouldInvalidateSession(validationError)) {
-            setActiveFinancialOwner(session.user.id);
+            await setActiveFinancialOwner(session.user.id);
             set({
               session,
               user: session.user,
@@ -108,6 +138,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             return;
           }
           await supabase.auth.signOut({ scope: 'local' });
+          await setActiveFinancialOwner(null);
           set({
             session: null,
             user: null,
@@ -118,6 +149,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           return;
         }
       }
+      await setActiveFinancialOwner(session?.user.id ?? null);
       set({
         session,
         user: session?.user ?? null,
@@ -125,9 +157,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         authStatus: session ? 'authenticated' : 'unauthenticated',
         authError: null,
       });
-      setActiveFinancialOwner(session?.user.id ?? null);
-    }).catch(() => {
-      setActiveFinancialOwner(null);
+    }).catch(async () => {
+      await setActiveFinancialOwner(null);
       set({
         session: null,
         user: null,
@@ -139,13 +170,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const invalidSession = event === 'SIGNED_OUT';
-      setActiveFinancialOwner(invalidSession ? null : session?.user.id ?? null);
-      set({
-        session: invalidSession ? null : session,
-        user: invalidSession ? null : session?.user ?? null,
-        loading: false,
-        authStatus: !invalidSession && session ? 'authenticated' : 'unauthenticated',
-        authError: null,
+      void setActiveFinancialOwner(invalidSession ? null : session?.user.id ?? null).then(() => {
+        set({
+          session: invalidSession ? null : session,
+          user: invalidSession ? null : session?.user ?? null,
+          loading: false,
+          authStatus: !invalidSession && session ? 'authenticated' : 'unauthenticated',
+          authError: null,
+        });
       });
     });
 
@@ -157,7 +189,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   signOut: async () => {
     set({ loading: true, authStatus: 'loading', authError: null });
     const { error } = await supabase.auth.signOut({ scope: 'local' });
-    setActiveFinancialOwner(null);
+    await setActiveFinancialOwner(null);
     set({
       session: null,
       user: null,

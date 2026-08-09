@@ -18,7 +18,7 @@ export default function DebtsScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage || i18n.language;
-  const { answers, debts, addDebt, removeDebt } = useOnboardingStore();
+  const { answers, debts, addDebt, removeDebt, updateDebt } = useOnboardingStore();
   const currencySymbol = answers['currency'] || 'MAD';
 
   // Calculate metrics
@@ -32,6 +32,34 @@ export default function DebtsScreen() {
   const [debtInterest, setDebtInterest] = useState('');
   const [debtDue, setDebtDue] = useState('15');
   const [debtOverdue, setDebtOverdue] = useState<boolean | null>(null);
+  const [editingDebtIndex, setEditingDebtIndex] = useState<number | null>(null);
+
+  const resetDebtForm = () => {
+    setDebtType('Credit Card');
+    setDebtTotal('');
+    setDebtMinPayment('');
+    setDebtInterest('');
+    setDebtDue('15');
+    setDebtOverdue(null);
+    setEditingDebtIndex(null);
+  };
+
+  const closeDebtForm = () => {
+    resetDebtForm();
+    setShowAdder(false);
+  };
+
+  const handleEditDebt = (index: number) => {
+    const debt = debts[index];
+    setDebtType(debt.type);
+    setDebtTotal(String(debt.totalAmount));
+    setDebtMinPayment(String(debt.minimumPayment));
+    setDebtInterest(String(debt.interestRate));
+    setDebtDue(debt.dueDate);
+    setDebtOverdue(debt.isOverdue);
+    setEditingDebtIndex(index);
+    setShowAdder(true);
+  };
 
   const handleAddDebt = () => {
     if (!debtTotal || !debtMinPayment || !debtInterest) {
@@ -53,12 +81,9 @@ export default function DebtsScreen() {
       Alert.alert(t('common.error', 'Error'), t('validation.invalidDebt', 'Check the balance, minimum payment, interest rate (0–100), and due day (1–31).'));
       return;
     }
-    addDebt(newDebt);
-    setDebtTotal('');
-    setDebtMinPayment('');
-    setDebtInterest('');
-    setDebtOverdue(null);
-    setShowAdder(false);
+    if (editingDebtIndex === null) addDebt(newDebt);
+    else updateDebt(editingDebtIndex, newDebt);
+    closeDebtForm();
   };
 
   const handleDeleteDebt = (idx: number) => {
@@ -89,7 +114,12 @@ export default function DebtsScreen() {
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <AppText variant="h3" style={styles.title}>Debt Accounts</AppText>
-        <TouchableOpacity style={styles.addTrigger} onPress={() => setShowAdder(!showAdder)}>
+        <TouchableOpacity
+          style={styles.addTrigger}
+          onPress={() => showAdder ? closeDebtForm() : setShowAdder(true)}
+          accessibilityRole="button"
+          accessibilityLabel={showAdder ? 'Close debt form' : 'Add debt account'}
+        >
           <Ionicons name={showAdder ? 'close' : 'add'} size={24} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
@@ -126,7 +156,7 @@ export default function DebtsScreen() {
         {/* Add debt form */}
         {showAdder && (
           <Card style={styles.adderCard}>
-            <AppText variant="bodySemiBold" style={styles.adderTitle}>Add Debt Line</AppText>
+            <AppText variant="bodySemiBold" style={styles.adderTitle}>{editingDebtIndex === null ? 'Add Debt Line' : 'Edit Debt Line'}</AppText>
             <Input label="Debt Type" value={debtType} onChangeText={setDebtType} placeholder="e.g. Credit Card, Student Loan" />
             <Input label={`Total Balance (${currencySymbol})`} value={debtTotal} onChangeText={setDebtTotal} placeholder="0.00" keyboardType="numeric" />
             <Input label={`Minimum Monthly Payment (${currencySymbol})`} value={debtMinPayment} onChangeText={setDebtMinPayment} placeholder="0.00" keyboardType="numeric" />
@@ -149,7 +179,7 @@ export default function DebtsScreen() {
               </TouchableOpacity>
             </View>
 
-            <Button title="Save Debt Account" onPress={handleAddDebt} variant="primary" style={styles.saveDebtBtn} />
+            <Button title={editingDebtIndex === null ? 'Save Debt Account' : 'Update Debt Account'} onPress={handleAddDebt} variant="primary" style={styles.saveDebtBtn} />
           </Card>
         )}
 
@@ -168,9 +198,14 @@ export default function DebtsScreen() {
                     <AppText variant="bodySemiBold" style={styles.debtName}>{item.type}</AppText>
                     <AppText variant="caption" style={styles.debtInterest}>Interest Rate: {item.interestRate}%</AppText>
                   </View>
-                  <TouchableOpacity onPress={() => handleDeleteDebt(idx)} style={styles.deleteBtn}>
-                    <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-                  </TouchableOpacity>
+                  <View style={styles.debtActions}>
+                    <TouchableOpacity onPress={() => handleEditDebt(idx)} style={styles.deleteBtn} accessibilityRole="button" accessibilityLabel="Edit debt account">
+                      <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteDebt(idx)} style={styles.deleteBtn} accessibilityRole="button" accessibilityLabel="Remove debt account">
+                      <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {item.isOverdue && (
@@ -370,6 +405,10 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  debtActions: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
   },
   deleteBtn: {
     padding: SPACING.xs,

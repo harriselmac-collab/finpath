@@ -97,18 +97,18 @@ const newTx: Omit<TransactionItem, 'id'> = {
 
   const getCategoryIcon = (category: string): string => {
     const map: Record<string, string> = {
-      'Housing': 'home',
-      'Salary': 'payments',
-      'Groceries': 'shopping-basket',
-      'Subscriptions': 'subscriptions',
-      'Transport': 'local-gas-station',
-      'Food': 'restaurant',
-      'Health': 'medical-services',
-      'Essential': 'home',
-      'Lifestyle': 'cafe',
-      'Income': 'payments',
+      'Housing': 'home-outline',
+      'Salary': 'cash-outline',
+      'Groceries': 'basket-outline',
+      'Subscriptions': 'repeat-outline',
+      'Transport': 'car-outline',
+      'Food': 'restaurant-outline',
+      'Health': 'medkit-outline',
+      'Essential': 'shield-checkmark-outline',
+      'Lifestyle': 'cafe-outline',
+      'Income': 'cash-outline',
     };
-    return map[category] || 'receipt';
+    return map[category] || 'receipt-outline';
   };
 
   const getCategoryColor = (type: string): string => {

@@ -33,9 +33,9 @@ const session = {
 } as Session;
 
 const flush = async () => {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 20 && useSessionStore.getState().loading; index += 1) {
+    await Promise.resolve();
+  }
 };
 
 describe('session restoration trust', () => {
@@ -104,7 +104,7 @@ describe('session restoration trust', () => {
   });
 
   test('clears local authentication on logout', async () => {
-    useSessionStore.getState().setSession(session as any);
+    await useSessionStore.getState().setSession(session as any);
     await useSessionStore.getState().signOut();
 
     expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });

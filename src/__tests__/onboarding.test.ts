@@ -5,6 +5,7 @@ import {
   getResumeQuestionStep,
   isMonthlyPlanReady,
 } from '../features/onboarding/quizFlow';
+import { resolveEntryRoute } from '../features/onboarding/entryRoute';
 import { useOnboardingStore } from '../store/onboardingStore';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -49,6 +50,13 @@ const buildCompleteAnswers = () => {
 };
 
 describe('Onboarding Quiz Branching Logic & Validations', () => {
+  test('waits for encrypted persistence before choosing the cold-start route', () => {
+    expect(resolveEntryRoute(false, false)).toBeNull();
+    expect(resolveEntryRoute(false, true)).toBeNull();
+    expect(resolveEntryRoute(true, false)).toBe('/onboarding/welcome');
+    expect(resolveEntryRoute(true, true)).toBe('/dashboard');
+  });
+
   test('keeps the dashboard usable when optional profile details are added later', () => {
     useOnboardingStore.setState({
       answers: {
@@ -78,6 +86,16 @@ describe('Onboarding Quiz Branching Logic & Validations', () => {
       isOverdue: false,
     });
     expect(useOnboardingStore.getState().onboardingCompleted).toBe(true);
+
+    useOnboardingStore.getState().updateDebt(0, {
+      type: 'Credit card',
+      totalAmount: 900,
+      minimumPayment: 50,
+      interestRate: 9,
+      dueDate: '20',
+      isOverdue: false,
+    });
+    expect(useOnboardingStore.getState().debts[0]).toMatchObject({ totalAmount: 900, minimumPayment: 50 });
   });
 
   test('should gate trusted monthly plan metrics until required answers are complete', () => {

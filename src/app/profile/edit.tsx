@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -99,6 +99,7 @@ function EditProfileForm() {
   const [pickingPhoto, setPickingPhoto] = useState(false);
   const [failedPreviewUri, setFailedPreviewUri] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const launchedPhotoPicker = useRef(false);
 
   const isDirty =
     preferredName !== (answers.preferredName || '') ||
@@ -144,6 +145,7 @@ function EditProfileForm() {
 
   const handleChoosePhoto = async () => {
     if (pickingPhoto) return;
+    launchedPhotoPicker.current = true;
     setPickingPhoto(true);
 
     try {
@@ -187,7 +189,14 @@ function EditProfileForm() {
     let active = true;
 
     ImagePicker.getPendingResultAsync().then(async (result) => {
-      if (!active || !result || !('assets' in result) || result.canceled || !result.assets[0]) return;
+      if (
+        !active
+        || launchedPhotoPicker.current
+        || !result
+        || !('assets' in result)
+        || result.canceled
+        || !result.assets[0]
+      ) return;
       setPickingPhoto(true);
       try {
         const dataUri = await prepareProfileImage(result.assets[0]);

@@ -1,6 +1,9 @@
 // src/components/ui/Input.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  BackHandler,
+  Keyboard,
+  Platform,
   TextInput,
   View,
   StyleSheet,
@@ -57,6 +60,15 @@ export const Input: React.FC<InputProps> = ({
   const { i18n } = useTranslation();
   const inputFont = getFontFamily(i18n.resolvedLanguage || i18n.language, 'regular');
 
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !isFocused) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      Keyboard.dismiss();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isFocused]);
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
@@ -91,6 +103,8 @@ export const Input: React.FC<InputProps> = ({
           numberOfLines={numberOfLines}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
+          returnKeyType={multiline ? 'default' : 'done'}
+          onSubmitEditing={multiline ? undefined : Keyboard.dismiss}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           style={[
