@@ -13,7 +13,7 @@
     "scheme": "pocketahead",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.harriselmac.pocketahead",
+      "package": "com.kaellabs.pocketahead",
       "versionCode": 1,
       "allowBackup": false,
       "blockedPermissions": [
@@ -69,6 +69,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d42a523f-da91-46c1-8499-152d1912bd67"
+      }
     }
   }
 }
