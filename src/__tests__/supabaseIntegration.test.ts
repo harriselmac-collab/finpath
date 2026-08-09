@@ -2,7 +2,11 @@ import { describe, expect, test, jest } from '@jest/globals';
 import fs from 'fs';
 import path from 'path';
 import * as SecureStore from 'expo-secure-store';
-import { ExpoSecureStoreAdapter } from '../services/supabase/supabaseClient';
+import {
+  ExpoSecureStoreAdapter,
+  hasSupabaseCredentials,
+  shouldEnableAuthSimulation,
+} from '../services/supabase/supabaseClient';
 
 // Mock expo-secure-store as namespace exports
 jest.mock('expo-secure-store', () => ({
@@ -26,6 +30,25 @@ describe('Supabase SecureStore Storage Adapter', () => {
   test('removeItem delegates to SecureStore', async () => {
     await ExpoSecureStoreAdapter.removeItem('supabase-auth-token');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('supabase-auth-token');
+  });
+
+  test('does not hide secure storage failures', async () => {
+    jest.mocked(SecureStore.setItemAsync).mockRejectedValueOnce(new Error('keychain unavailable'));
+    await expect(ExpoSecureStoreAdapter.setItem('token', 'value')).rejects.toThrow('keychain unavailable');
+  });
+});
+
+describe('Production authentication configuration', () => {
+  test('requires both real Supabase credentials', () => {
+    expect(hasSupabaseCredentials(undefined, undefined)).toBe(false);
+    expect(hasSupabaseCredentials('https://mock-url.supabase.co', 'mock-anon-key-placeholder')).toBe(false);
+    expect(hasSupabaseCredentials('https://example.supabase.co', 'real-anon-key')).toBe(true);
+  });
+
+  test('allows simulation only in development with the explicit flag', () => {
+    expect(shouldEnableAuthSimulation(false, 'true')).toBe(false);
+    expect(shouldEnableAuthSimulation(true, 'false')).toBe(false);
+    expect(shouldEnableAuthSimulation(true, 'true')).toBe(true);
   });
 });
 

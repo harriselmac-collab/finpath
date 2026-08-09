@@ -1,31 +1,64 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { type ComponentProps, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
+import {
+  getThemePreference,
+  saveThemePreference,
+  type ThemePreference,
+} from '../../services/theme';
 
 export default function AppearanceScreen() {
   const router = useRouter();
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState<ThemePreference>('system');
+  const resolvedTheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
-  const handleThemeChange = (selectedTheme: string) => {
+  useEffect(() => {
+    let mounted = true;
+    getThemePreference().then((preference) => {
+      if (mounted) setTheme(preference);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleThemeChange = async (selectedTheme: ThemePreference) => {
+    const previousTheme = theme;
     setTheme(selectedTheme);
-    Alert.alert('Theme Saved', `Application theme is set to ${selectedTheme}.`);
+    try {
+      await saveThemePreference(selectedTheme);
+    } catch {
+      setTheme(previousTheme);
+      Alert.alert('Theme not saved', 'Please try changing the appearance again.');
+    }
   };
 
-  const renderThemeOption = (label: string, value: string) => {
+  const renderThemeOption = (
+    label: string,
+    value: ThemePreference,
+    icon: ComponentProps<typeof Ionicons>['name'],
+  ) => {
     const isSelected = theme === value;
     return (
       <TouchableOpacity
         key={value}
         style={[styles.themeItem, isSelected && styles.themeItemSelected]}
-        onPress={() => handleThemeChange(value)}
+        onPress={() => void handleThemeChange(value)}
+        accessibilityRole="radio"
+        accessibilityLabel={label}
+        accessibilityState={{ checked: isSelected }}
+        aria-checked={isSelected}
       >
-        <Text style={[styles.themeText, isSelected && styles.themeTextSelected]}>{label}</Text>
+        <View style={styles.themeIdentity}>
+          <Ionicons name={icon} size={20} color={isSelected ? COLORS.secondary : COLORS.textSecondary} />
+          <Text style={[styles.themeText, isSelected && styles.themeTextSelected]}>{label}</Text>
+        </View>
         {isSelected && (
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.emerald} />
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
         )}
       </TouchableOpacity>
     );
@@ -44,10 +77,13 @@ export default function AppearanceScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
           <Text style={styles.sectionHeader}>Theme Mode</Text>
+          <Text style={styles.supportingText}>
+            {theme === 'system' ? `Following your device (${resolvedTheme})` : `Using ${theme} mode`}
+          </Text>
           <View style={styles.list}>
-            {renderThemeOption('Light Mode (Warm Neutral)', 'light')}
-            {renderThemeOption('Dark Mode (Deep Navy)', 'dark')}
-            {renderThemeOption('Follow System Defaults', 'system')}
+            {renderThemeOption('Light Mode (Cool Cloud)', 'light', 'sunny-outline')}
+            {renderThemeOption('Dark Mode (Deep Navy)', 'dark', 'moon-outline')}
+            {renderThemeOption('Follow System Defaults', 'system', 'phone-portrait-outline')}
           </View>
         </Card>
       </ScrollView>
@@ -100,6 +136,12 @@ const styles = StyleSheet.create({
   list: {
     gap: SPACING.xs,
   },
+  supportingText: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textSecondary,
+    marginTop: -SPACING.xs,
+    marginBottom: SPACING.md,
+  },
   themeItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -112,8 +154,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   themeItemSelected: {
-    borderColor: COLORS.emerald,
+    borderColor: COLORS.secondary,
     backgroundColor: COLORS.mintBackground,
+  },
+  themeIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   themeText: {
     ...TYPOGRAPHY.bodyMedium,
@@ -121,6 +168,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   themeTextSelected: {
-    color: COLORS.darkEmerald,
+    color: COLORS.secondary,
   },
 });

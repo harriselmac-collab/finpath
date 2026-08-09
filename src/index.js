@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect } from 'react';
 import { View } from 'react-native';
 import { SplashScreen } from 'expo-splash-screen';
-import { useFonts, Changa_400Regular, Changa_500Medium, Changa_600SemiBold, Changa_700Bold, Changa_800ExtraBold } from '@expo-google-fonts/changa';
+import { useFonts } from 'expo-font';
 import { Router } from 'expo-router';
 
 export default function Index() {
@@ -14,11 +14,7 @@ export default function Index() {
   }, []);
 
   const [fontsLoaded] = useFonts({
-    Changa_400Regular,
-    Changa_500Medium,
-    Changa_600SemiBold,
-    Changa_700Bold,
-    Changa_800ExtraBold,
+    Cairo: require('../assets/fonts/Cairo-Variable.ttf'),
   });
   const onLayoutRootView = useCallback(async () => {
     await SplashScreen.hideAsync();

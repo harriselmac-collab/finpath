@@ -11,13 +11,23 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInUp, FadeOut, FadeInDown, LinearTransition } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  FadeInDown,
+  LinearTransition,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import AppText from '../../components/Text/AppText';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useSessionStore } from '../../store/sessionStore';
+import { EXPENSE_REVIEW_VERSION } from '../../features/onboarding/quizFlow';
+import { formatCurrency } from '../../utils/currency';
 
 interface EssentialExpenseItem {
   id: string;
@@ -27,10 +37,46 @@ interface EssentialExpenseItem {
   isEssential: boolean;
 }
 
+const PROTECTED_EXPENSE_IDS = new Set(['vehicleLoan', 'debtsMinimum']);
+
+const DEFAULT_EXPENSE_LABEL_KEYS: Record<string, { category: string; name: string }> = {
+  housing: { category: 'categoryHousing', name: 'mortgage' },
+  electricity: { category: 'categoryUtilities', name: 'electricity' },
+  water: { category: 'categoryUtilities', name: 'water' },
+  internet: { category: 'categoryUtilities', name: 'internet' },
+  phone: { category: 'categoryUtilities', name: 'phone' },
+  groceries: { category: 'categoryGroceries', name: 'groceries' },
+  medication: { category: 'categoryHealthcare', name: 'medication' },
+  healthInsurance: { category: 'categoryHealthcare', name: 'healthInsurance' },
+  medicalAppointments: { category: 'categoryHealthcare', name: 'medicalAppointments' },
+  supportOtherHealthcare: { category: 'categoryHealthcare', name: 'otherHealthcareSupport' },
+  schoolFees: { category: 'categoryFamily', name: 'schoolFees' },
+  childcare: { category: 'categoryFamily', name: 'childcare' },
+  vehicleLoan: { category: 'categoryVehicle', name: 'carLoanPayment' },
+  fuel: { category: 'categoryVehicle', name: 'fuel' },
+  vehicleMaintenance: { category: 'categoryVehicle', name: 'vehicleMaintenance' },
+  debtsMinimum: { category: 'categoryDebts', name: 'minimumDebtPayments' },
+  subscriptions: { category: 'categoryFlexible', name: 'subscriptions' },
+  otherBills: { category: 'categoryFlexible', name: 'otherBills' },
+};
+
+const isEssentialExpenseItem = (value: unknown): value is EssentialExpenseItem => {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.id === 'string'
+    && typeof item.category === 'string'
+    && typeof item.name === 'string'
+    && typeof item.amount === 'number'
+    && Number.isFinite(item.amount)
+    && item.amount >= 0
+    && typeof item.isEssential === 'boolean';
+};
+
 export default function EssentialExpensesReviewScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
-  const { answers, debts, setOnboardingCompleted } = useOnboardingStore();
+  const { t, i18n } = useTranslation();
+  const reduceMotion = useReducedMotion();
+  const { answers, debts, setAnswers, setOnboardingCompleted } = useOnboardingStore();
 
   const [expenses, setExpenses] = useState<EssentialExpenseItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -39,14 +85,23 @@ export default function EssentialExpensesReviewScreen() {
   // Adder form fields
   const [showAdder, setShowAdder] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState('Groceries');
+  const [newCategory, setNewCategory] = useState(() => t('onboarding.essentialExpenses.categoryGroceries'));
   const [newAmount, setNewAmount] = useState('');
   const [newIsEssential, setNewIsEssential] = useState(true);
 
-  const currencySymbol = answers['currency'] || 'MAD';
+  const currencyCode = answers['currency'] || 'MAD';
+  const locale = i18n.resolvedLanguage || i18n.language;
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    if (Array.isArray(answers.reviewedExpenses)) {
+      const validExpenses = answers.reviewedExpenses.filter(isEssentialExpenseItem);
+      if (validExpenses.length > 0 || answers.reviewedExpenses.length === 0) {
+        setExpenses(validExpenses);
+        return;
+      }
+    }
+
     // Populate default list of essential expenses based on onboarding answers
     const list: EssentialExpenseItem[] = [];
 
@@ -54,8 +109,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['housingAmount']) {
       list.push({
         id: 'housing',
-        category: 'Housing',
-        name: answers['hasRent'] ? 'Rent' : 'Mortgage',
+        category: 'housing',
+        name: 'housing',
         amount: Number(answers['housingAmount']),
         isEssential: true,
       });
@@ -65,8 +120,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['electricity']) {
       list.push({
         id: 'electricity',
-        category: 'Utilities',
-        name: 'Electricity',
+        category: 'utilities',
+        name: 'electricity',
         amount: Number(answers['electricity']),
         isEssential: true,
       });
@@ -74,8 +129,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['water']) {
       list.push({
         id: 'water',
-        category: 'Utilities',
-        name: 'Water',
+        category: 'utilities',
+        name: 'water',
         amount: Number(answers['water']),
         isEssential: true,
       });
@@ -83,8 +138,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['internet']) {
       list.push({
         id: 'internet',
-        category: 'Utilities',
-        name: 'Internet',
+        category: 'utilities',
+        name: 'internet',
         amount: Number(answers['internet']),
         isEssential: true,
       });
@@ -92,8 +147,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['phone']) {
       list.push({
         id: 'phone',
-        category: 'Utilities',
-        name: 'Phone',
+        category: 'utilities',
+        name: 'phone',
         amount: Number(answers['phone']),
         isEssential: true,
       });
@@ -103,8 +158,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['groceries']) {
       list.push({
         id: 'groceries',
-        category: 'Groceries',
-        name: 'Groceries',
+        category: 'groceries',
+        name: 'groceries',
         amount: Number(answers['groceries']),
         isEssential: true,
       });
@@ -114,8 +169,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['medicationExpenses']) {
       list.push({
         id: 'medication',
-        category: 'Healthcare',
-        name: 'Medication',
+        category: 'healthcare',
+        name: 'medication',
         amount: Number(answers['medicationExpenses']),
         isEssential: true,
       });
@@ -123,8 +178,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['healthInsurance']) {
       list.push({
         id: 'healthInsurance',
-        category: 'Healthcare',
-        name: 'Health Insurance',
+        category: 'healthcare',
+        name: 'healthInsurance',
         amount: Number(answers['healthInsurance']),
         isEssential: true,
       });
@@ -132,10 +187,37 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['medicalAppointments']) {
       list.push({
         id: 'medicalAppointments',
-        category: 'Healthcare',
-        name: 'Medical Appointments',
+        category: 'healthcare',
+        name: 'medicalAppointments',
         amount: Number(answers['medicalAppointments']),
         isEssential: true,
+      });
+    }
+    if (answers['supportOtherHealthcare']) {
+      list.push({
+        id: 'supportOtherHealthcare',
+        category: 'healthcare',
+        name: 'otherHealthcareSupport',
+        amount: Number(answers['supportOtherHealthcare']),
+        isEssential: true,
+      });
+    }
+    if (answers['subscriptions']) {
+      list.push({
+        id: 'subscriptions',
+        category: 'flexible',
+        name: 'subscriptions',
+        amount: Number(answers['subscriptions']),
+        isEssential: false,
+      });
+    }
+    if (answers['otherBills']) {
+      list.push({
+        id: 'otherBills',
+        category: 'flexible',
+        name: 'otherBills',
+        amount: Number(answers['otherBills']),
+        isEssential: false,
       });
     }
 
@@ -143,8 +225,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['schoolFees']) {
       list.push({
         id: 'schoolFees',
-        category: 'Family',
-        name: 'School Fees',
+        category: 'family',
+        name: 'schoolFees',
         amount: Number(answers['schoolFees']),
         isEssential: true,
       });
@@ -152,8 +234,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['childcareExpenses']) {
       list.push({
         id: 'childcare',
-        category: 'Family',
-        name: 'Childcare',
+        category: 'family',
+        name: 'childcare',
         amount: Number(answers['childcareExpenses']),
         isEssential: true,
       });
@@ -163,8 +245,8 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['vehiclePayment']) {
       list.push({
         id: 'vehicleLoan',
-        category: 'Vehicle',
-        name: 'Car Loan Payment',
+        category: 'vehicle',
+        name: 'carLoanPayment',
         amount: Number(answers['vehiclePayment']),
         isEssential: true,
       });
@@ -172,9 +254,18 @@ export default function EssentialExpensesReviewScreen() {
     if (answers['fuelSpending']) {
       list.push({
         id: 'fuel',
-        category: 'Vehicle',
-        name: 'Fuel',
+        category: 'vehicle',
+        name: 'fuel',
         amount: Number(answers['fuelSpending']),
+        isEssential: true,
+      });
+    }
+    if (answers['vehicleMaintenance']) {
+      list.push({
+        id: 'vehicleMaintenance',
+        category: 'vehicle',
+        name: 'vehicleMaintenance',
+        amount: Number(answers['vehicleMaintenance']),
         isEssential: true,
       });
     }
@@ -185,8 +276,8 @@ export default function EssentialExpensesReviewScreen() {
       if (totalMinDebts > 0) {
         list.push({
           id: 'debtsMinimum',
-          category: 'Debts',
-          name: 'Minimum Debt Payments',
+          category: 'debts',
+          name: 'minimumDebtPayments',
           amount: totalMinDebts,
           isEssential: true,
         });
@@ -206,7 +297,10 @@ export default function EssentialExpensesReviewScreen() {
   const handleSaveEdit = (id: string) => {
     const amt = Number(editAmount);
     if (isNaN(amt) || amt < 0) {
-      Alert.alert('Error', 'Please enter a valid positive number');
+      Alert.alert(
+        t('common.error'),
+        t('onboarding.essentialExpenses.validPositiveNumber')
+      );
       return;
     }
     setExpenses(expenses.map((e) => (e.id === id ? { ...e, amount: amt } : e)));
@@ -225,12 +319,18 @@ export default function EssentialExpensesReviewScreen() {
 
   const handleAddExpense = () => {
     if (!newName || !newAmount) {
-      Alert.alert('Error', 'Please enter name and amount');
+      Alert.alert(
+        t('common.error'),
+        t('onboarding.essentialExpenses.enterNameAndAmount')
+      );
       return;
     }
     const amt = Number(newAmount);
     if (isNaN(amt) || amt < 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert(
+        t('common.error'),
+        t('onboarding.essentialExpenses.validAmount')
+      );
       return;
     }
 
@@ -251,38 +351,58 @@ export default function EssentialExpensesReviewScreen() {
   const syncOnboardingAnswers = useSessionStore((state) => state.syncOnboardingAnswers);
   const user = useSessionStore((state) => state.user);
 
+  const getExpenseCategoryLabel = (item: EssentialExpenseItem) => {
+    const key = DEFAULT_EXPENSE_LABEL_KEYS[item.id]?.category;
+    return key ? t(`onboarding.essentialExpenses.${key}`) : item.category;
+  };
+
+  const getExpenseNameLabel = (item: EssentialExpenseItem) => {
+    const key = item.id === 'housing'
+      ? (answers['hasRent'] ? 'rent' : 'mortgage')
+      : DEFAULT_EXPENSE_LABEL_KEYS[item.id]?.name;
+    return key ? t(`onboarding.essentialExpenses.${key}`) : item.name;
+  };
+
   const handleConfirmAll = async () => {
+    const confirmedAnswers = {
+      ...answers,
+      reviewedExpenses: expenses,
+      reviewedExpensesVersion: EXPENSE_REVIEW_VERSION,
+    };
+    setAnswers(confirmedAnswers);
     setOnboardingCompleted(true);
     if (user) {
       try {
-        await syncOnboardingAnswers(answers, true);
+        await syncOnboardingAnswers(confirmedAnswers, true);
       } catch (err) {
         console.warn('Failed to sync onboarding answers with live database:', err);
       }
     }
-    router.replace('/dashboard');
+    router.replace(user ? '/dashboard' : '/auth');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('onboarding.essentialTitle')}</Text>
-        <Text style={styles.subtitle}>{t('onboarding.essentialSubtitle')}</Text>
+        <Text role="heading" aria-level={1} style={styles.title}>
+          {t('onboarding.essentialExpenses.title')}
+        </Text>
+        <Text style={styles.subtitle}>{t('onboarding.essentialExpenses.subtitle')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView role="main" contentContainerStyle={styles.scrollContent}>
         {expenses.map((item, index) => (
           <Animated.View
             key={item.id}
-            entering={FadeInUp.delay(index * 50).duration(400)}
-            exiting={FadeOut.duration(250)}
-            layout={LinearTransition}
+            entering={reduceMotion ? undefined : FadeInUp.delay(index * 50).duration(400)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(250)}
+            layout={reduceMotion ? undefined : LinearTransition}
           >
             <Card style={styles.expenseCard}>
               <View style={styles.row}>
                 <View style={styles.meta}>
-                  <Text style={styles.categoryLabel}>{item.category}</Text>
-                  <Text style={styles.expenseName}>{item.name}</Text>
+                  <Text style={styles.categoryLabel}>{getExpenseCategoryLabel(item)}</Text>
+                  <Text style={styles.expenseName}>{getExpenseNameLabel(item)}</Text>
                 </View>
 
                 <View style={styles.amountSec}>
@@ -296,16 +416,26 @@ export default function EssentialExpensesReviewScreen() {
                         autoFocus
                       />
                       <Button
-                        title="✓"
+                        title={t('onboarding.essentialExpenses.saveAmount')}
                         onPress={() => handleSaveEdit(item.id)}
                         variant="text"
                         style={styles.checkBtn}
                       />
                     </View>
+                  ) : PROTECTED_EXPENSE_IDS.has(item.id) ? (
+                    <Text style={styles.amountText}>
+                      {formatCurrency(item.amount, currencyCode, locale)}
+                    </Text>
                   ) : (
-                    <TouchableOpacity onPress={() => handleEdit(item.id, item.amount)}>
+                    <TouchableOpacity
+                      onPress={() => handleEdit(item.id, item.amount)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('onboarding.essentialExpenses.editAmount', {
+                        name: getExpenseNameLabel(item),
+                      })}
+                    >
                       <Text style={styles.amountText}>
-                        {currencySymbol} {item.amount} 📝
+                        {formatCurrency(item.amount, currencyCode, locale)}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -315,70 +445,120 @@ export default function EssentialExpensesReviewScreen() {
                       item.isEssential ? styles.essentialBadge : styles.flexibleBadge,
                     ]}
                   >
-                    <Text
+                    <AppText
+                      variant="labelSm"
                       style={[
                         styles.badgeText,
                         item.isEssential ? styles.essentialBadgeText : styles.flexibleBadgeText,
                       ]}
                     >
-                      {item.isEssential ? 'Essential' : 'Flexible'}
-                    </Text>
+                      {t(item.isEssential
+                        ? 'onboarding.essentialExpenses.essential'
+                        : 'onboarding.essentialExpenses.flexible')}
+                    </AppText>
                   </View>
                 </View>
               </View>
 
-              <View style={styles.cardActions}>
-                <Button
-                  title={item.isEssential ? 'Make Flexible' : 'Make Essential'}
-                  onPress={() => handleReclassify(item.id)}
-                  variant="text"
-                  textStyle={styles.actionBtnText}
-                />
-                <Button
-                  title="Delete"
-                  onPress={() => handleDelete(item.id)}
-                  variant="text"
-                  textStyle={styles.deleteBtnText}
-                />
-              </View>
+              {!PROTECTED_EXPENSE_IDS.has(item.id) && (
+                <View style={styles.cardActions}>
+                  <Button
+                    title={t(item.isEssential
+                      ? 'onboarding.essentialExpenses.makeFlexible'
+                      : 'onboarding.essentialExpenses.makeEssential')}
+                    onPress={() => handleReclassify(item.id)}
+                    variant="text"
+                    textStyle={styles.actionBtnText}
+                  />
+                  <Button
+                    title={t('onboarding.essentialExpenses.delete')}
+                    onPress={() => handleDelete(item.id)}
+                    variant="text"
+                    textStyle={styles.deleteBtnText}
+                  />
+                </View>
+              )}
             </Card>
           </Animated.View>
         ))}
 
         {/* Add custom expense button / drawer */}
         {!showAdder ? (
-          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeIn.duration(200)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(150)}
+          >
             <Button
-              title="+ Add Custom Expense"
+              title={t('onboarding.essentialExpenses.addCustomExpense')}
               onPress={() => setShowAdder(true)}
               variant="secondary"
               style={styles.showAdderBtn}
             />
           </Animated.View>
         ) : (
-          <Animated.View entering={FadeInDown.duration(300)} exiting={FadeOut.duration(150)}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.duration(300)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(150)}
+          >
             <Card style={styles.adderForm}>
-              <Text style={styles.adderTitle}>Add Custom Expense</Text>
-              <Input label="Expense Name" value={newName} onChangeText={setNewName} placeholder="e.g. Water Filter" />
-              <Input label="Category" value={newCategory} onChangeText={setNewCategory} placeholder="e.g. Groceries" />
-              <Input label={`Amount (${currencySymbol})`} value={newAmount} onChangeText={setNewAmount} placeholder="0.00" keyboardType="numeric" />
+              <Text style={styles.adderTitle}>
+                {t('onboarding.essentialExpenses.addCustomExpense')}
+              </Text>
+              <Input
+                label={t('onboarding.essentialExpenses.expenseName')}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder={t('onboarding.essentialExpenses.expenseNamePlaceholder')}
+              />
+              <Input
+                label={t('onboarding.essentialExpenses.category')}
+                value={newCategory}
+                onChangeText={setNewCategory}
+                placeholder={t('onboarding.essentialExpenses.categoryPlaceholder')}
+              />
+              <Input
+                label={t('onboarding.essentialExpenses.amount', { currency: currencyCode })}
+                value={newAmount}
+                onChangeText={setNewAmount}
+                placeholder={t('onboarding.essentialExpenses.amountPlaceholder')}
+                keyboardType="numeric"
+              />
               <View style={styles.yesNoContainer}>
                 <TouchableOpacity
                   style={[styles.typeSelect, newIsEssential && styles.typeSelectActive]}
                   onPress={() => setNewIsEssential(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('onboarding.essentialExpenses.essential')}
+                  accessibilityState={{ selected: newIsEssential }}
                 >
-                  <Text style={[styles.typeText, newIsEssential && styles.typeTextActive]}>Essential</Text>
+                  <Text style={[styles.typeText, newIsEssential && styles.typeTextActive]}>
+                    {t('onboarding.essentialExpenses.essential')}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.typeSelect, !newIsEssential && styles.typeSelectActive]}
                   onPress={() => setNewIsEssential(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('onboarding.essentialExpenses.flexible')}
+                  accessibilityState={{ selected: !newIsEssential }}
                 >
-                  <Text style={[styles.typeText, !newIsEssential && styles.typeTextActive]}>Flexible</Text>
+                  <Text style={[styles.typeText, !newIsEssential && styles.typeTextActive]}>
+                    {t('onboarding.essentialExpenses.flexible')}
+                  </Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.adderButtons}>
-                <Button title="Cancel" onPress={() => setShowAdder(false)} variant="text" />
-                <Button title="Add" onPress={handleAddExpense} variant="primary" style={styles.addBtn} />
+                <Button
+                  title={t('onboarding.essentialExpenses.cancel')}
+                  onPress={() => setShowAdder(false)}
+                  variant="text"
+                />
+                <Button
+                  title={t('onboarding.essentialExpenses.add')}
+                  onPress={handleAddExpense}
+                  variant="primary"
+                  style={styles.addBtn}
+                />
               </View>
             </Card>
           </Animated.View>
@@ -387,7 +567,7 @@ export default function EssentialExpensesReviewScreen() {
 
       <View style={styles.footer}>
         <Button
-          title="Confirm & Generate Plan"
+          title={t('onboarding.essentialExpenses.confirmGeneratePlan')}
           onPress={handleConfirmAll}
           variant="primary"
           style={styles.confirmBtn}
@@ -409,7 +589,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceContainerLowest,
   },
   title: {
     ...TYPOGRAPHY.h2,
@@ -560,7 +740,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderTopWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceContainerLowest,
   },
   confirmBtn: {
     width: '100%',

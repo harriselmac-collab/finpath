@@ -14,7 +14,12 @@ export default function AboutScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.accessibility.back')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.about.title')}</Text>
@@ -26,7 +31,7 @@ export default function AboutScreen() {
           <Text style={styles.sectionHeader}>{t('settings.about.infoHeader')}</Text>
           <View style={styles.row}>
             <Text style={styles.label}>{t('settings.about.appName')}</Text>
-            <Text style={styles.value}>FinPath</Text>
+            <Text style={styles.value}>Pocket Ahead</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.row}>
@@ -36,18 +41,8 @@ export default function AboutScreen() {
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={styles.label}>{t('settings.about.buildNum')}</Text>
-            <Text style={styles.value}>100</Text>
+            <Text style={styles.value}>1</Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <Text style={styles.label}>{t('settings.about.apiLevel')}</Text>
-            <Text style={styles.value}>Android 15 (API 35)</Text>
-          </View>
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>{t('settings.about.devHeader')}</Text>
-          <Text style={styles.bodyText}>{t('settings.about.devDesc')}</Text>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -112,10 +107,5 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: COLORS.outlineVariant,
-  },
-  bodyText: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textPrimary,
-    lineHeight: 16,
   },
 });

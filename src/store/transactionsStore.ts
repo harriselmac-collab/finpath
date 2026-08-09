@@ -1,21 +1,71 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedFinancialStorage } from '../services/storage/encryptedStorage';
 
-interface Transaction {
+export type SyncState = 'localOnly' | 'pendingUpload' | 'synced' | 'conflict' | 'failed' | 'pendingDelete';
+
+export interface DeletionTombstone {
+  id: string;
+  deletedAt: string;
+  ownerId: string;
+}
+
+export interface Transaction {
   id: string;
   name: string;
   amount: number;
-  type: 'income' | 'essential' | 'flexible' | 'debt' | 'savings';
+  type: 'income' | 'essential' | 'flexible' | 'debt' | 'savings' | 'refund' | 'transfer';
   category: string;
   date: string;
   timeGroup: string;
   timestamp: number;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+  syncState: SyncState;
 }
+
+export const migrateTransactionsState = (persistedState: any) => {
+  const now = new Date().toISOString();
+  return {
+    ...persistedState,
+    transactions: Array.isArray(persistedState?.transactions)
+      ? persistedState.transactions.map((transaction: any) => ({
+          ...transaction,
+          createdAt: transaction.createdAt || new Date(transaction.timestamp || Date.now()).toISOString(),
+          updatedAt: transaction.updatedAt || transaction.createdAt || now,
+          ownerId: transaction.ownerId || 'local',
+          syncState: transaction.syncState || 'localOnly',
+        }))
+      : [],
+  };
+};
+
+export const migrateTransactionsByOwner = (persistedState: any) => {
+  const migrated = migrateTransactionsState(persistedState);
+  if (persistedState?.transactionsByOwner) {
+    const ownerId = persistedState.activeOwnerId || 'local';
+    const deletedIds = Array.isArray(persistedState.deletedIds)
+      ? persistedState.deletedIds.map((item: string | DeletionTombstone) => typeof item === 'string'
+        ? { id: item, deletedAt: new Date(0).toISOString(), ownerId }
+        : item)
+      : [];
+    return { ...migrated, ...persistedState, deletedIds };
+  }
+  const grouped = migrated.transactions.reduce((owners: Record<string, Transaction[]>, transaction: Transaction) => {
+    (owners[transaction.ownerId] ||= []).push(transaction);
+    return owners;
+  }, {});
+  return { ...migrated, activeOwnerId: null, transactions: [], transactionsByOwner: grouped, deletedIds: [] };
+};
 
 interface TransactionsState {
   transactions: Transaction[];
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => void;
+  transactionsByOwner: Record<string, Transaction[]>;
+  activeOwnerId: string | null;
+  deletedIds: DeletionTombstone[];
+  setActiveOwner: (ownerId: string | null) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp' | 'createdAt' | 'updatedAt' | 'ownerId' | 'syncState'>) => void;
   removeTransaction: (id: string) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   clearTransactions: () => void;
@@ -31,12 +81,27 @@ export const useTransactionsStore = create<TransactionsState>()(
   persist(
     (set, get) => ({
       transactions: [],
+      transactionsByOwner: {},
+      activeOwnerId: 'local',
+      deletedIds: [],
+
+      setActiveOwner: (ownerId) => set((state) => {
+        const transactionsByOwner = state.activeOwnerId
+          ? { ...state.transactionsByOwner, [state.activeOwnerId]: state.transactions }
+          : state.transactionsByOwner;
+        return { activeOwnerId: ownerId, transactionsByOwner, transactions: ownerId ? transactionsByOwner[ownerId] || [] : [] };
+      }),
 
       addTransaction: (transaction) => {
+        const now = new Date();
         const newTransaction = {
           ...transaction,
-          id: Math.random().toString(36).substr(2, 9),
-          timestamp: Date.now(),
+          id: globalThis.crypto?.randomUUID?.() ?? `${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+          timestamp: now.getTime(),
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+          ownerId: get().activeOwnerId || 'local',
+          syncState: 'localOnly' as const,
         };
         set((state) => ({
           transactions: [newTransaction, ...state.transactions],
@@ -44,15 +109,25 @@ export const useTransactionsStore = create<TransactionsState>()(
       },
 
       removeTransaction: (id) => {
-        set((state) => ({
-          transactions: state.transactions.filter((t) => t.id !== id),
-        }));
+        set((state) => {
+          const transaction = state.transactions.find((item) => item.id === id);
+          if (!transaction) return state;
+          return {
+            transactions: state.transactions.filter((item) => item.id !== id),
+            deletedIds: [
+              ...state.deletedIds.filter((item) => item.id !== id || item.ownerId !== transaction.ownerId),
+              { id, deletedAt: new Date().toISOString(), ownerId: transaction.ownerId },
+            ],
+          };
+        });
       },
 
       updateTransaction: (id, updates) => {
         set((state) => ({
           transactions: state.transactions.map((t) =>
-            t.id === id ? { ...t, ...updates } : t
+            t.id === id
+              ? { ...t, ...updates, updatedAt: new Date().toISOString(), syncState: 'localOnly' }
+              : t
           ),
         }));
       },
@@ -107,7 +182,17 @@ export const useTransactionsStore = create<TransactionsState>()(
     }),
     {
       name: 'finpath-transactions-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => encryptedFinancialStorage),
+      version: 3,
+      migrate: migrateTransactionsByOwner,
+      partialize: (state) => ({
+        transactions: state.transactions,
+        activeOwnerId: state.activeOwnerId,
+        deletedIds: state.deletedIds,
+        transactionsByOwner: state.activeOwnerId
+          ? { ...state.transactionsByOwner, [state.activeOwnerId]: state.transactions }
+          : state.transactionsByOwner,
+      }),
     }
   )
 );

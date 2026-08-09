@@ -1,190 +1,294 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInUp, FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
+import Svg, { Circle, Path } from 'react-native-svg';
+
+import AppText from '../../components/Text/AppText';
 import { Button } from '../../components/ui/Button';
+import { FlagIcon } from '../../components/ui/FlagIcon';
+import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
+import { getLanguageOption } from '../../services/localization/languages';
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { t, ready } = useTranslation();
+  const { t, i18n, ready } = useTranslation();
 
   if (!ready) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
 
+  const currentLanguage = getLanguageOption(i18n.resolvedLanguage || i18n.language);
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Brand */}
-        <Animated.View entering={FadeInDown.duration(600).delay(100)} style={styles.brandSection}>
-          <Animated.View entering={ZoomIn.duration(500).delay(200)} style={styles.logoBadge}>
-            <Text style={styles.logoText}>FP</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View entering={FadeIn.duration(200)} style={styles.header}>
+          <Image
+            source={require('../../../assets/branding/pocket-ahead-wordmark.svg')}
+            style={styles.brandLogo}
+            contentFit="contain"
+            accessibilityLabel="Pocket Ahead"
+          />
+          <Pressable
+            onPress={() => router.push('/profile/language')}
+            style={({ pressed }) => [styles.languageButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.language', { defaultValue: 'Language' })}
+          >
+            <FlagIcon countryCode={currentLanguage.countryCode} size={18} />
+            <AppText variant="bodySemiBold" style={styles.languageText}>
+              {currentLanguage.label}
+            </AppText>
+            <Ionicons name="chevron-down" size={16} color={COLORS.primary} />
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeIn.duration(240).delay(40)} style={styles.visual}>
+          <Svg width="100%" height={230} viewBox="0 0 340 230" accessibilityLabel="Financial growth path">
+            <Path
+              d="M18 201 C92 204 95 40 174 38 C246 36 235 177 322 181"
+              fill="none"
+              stroke={COLORS.secondary}
+              strokeWidth={8}
+              strokeLinecap="round"
+            />
+            <Circle cx="18" cy="201" r="10" fill={COLORS.secondary} />
+            <Circle cx="174" cy="38" r="10" fill={COLORS.secondary} />
+            <Circle cx="322" cy="181" r="10" fill={COLORS.primary} />
+          </Svg>
+
+          <Animated.View entering={FadeInUp.duration(220).delay(90)} style={[styles.metricCard, styles.growthCard]}>
+            <Ionicons name="trending-up" size={22} color={COLORS.secondary} />
+            <View>
+              <AppText variant="supporting" style={styles.metricLabel}>
+                {t('welcome.wealthGrowth', { defaultValue: 'Wealth growth' })}
+              </AppText>
+              <AppText variant="financialAmount" style={styles.metricAmount}>+12.4%</AppText>
+            </View>
           </Animated.View>
-          <Animated.Text entering={FadeIn.duration(400).delay(400)} style={styles.brandName}>FinPath</Animated.Text>
+
+          <Animated.View entering={FadeInUp.duration(220).delay(140)} style={[styles.metricCard, styles.fundCard]}>
+            <Ionicons name="shield-checkmark-outline" size={24} color={COLORS.secondary} />
+            <View>
+              <AppText variant="supporting" style={styles.metricLabel}>
+                {t('dashboard.emergencyFund', { defaultValue: 'Emergency fund' })}
+              </AppText>
+              <AppText variant="financialAmount" style={styles.metricAmount}>MAD 10,000</AppText>
+            </View>
+          </Animated.View>
         </Animated.View>
 
-        {/* Hero */}
-        <View style={styles.heroSection}>
-          <Animated.Text entering={FadeInUp.duration(600).delay(300)} style={styles.title}>{t('welcome.title')}</Animated.Text>
-          <Animated.Text entering={FadeInUp.duration(600).delay(450)} style={styles.subtitle}>{t('welcome.subtitle')}</Animated.Text>
-          <Animated.Text entering={FadeInUp.duration(600).delay(600)} style={styles.description}>{t('welcome.description')}</Animated.Text>
-        </View>
-
-        {/* Privacy Card */}
-        <Animated.View entering={FadeInUp.duration(600).delay(750)} style={styles.privacyCard}>
-          <View style={styles.privacyIconBox}>
-            <Text style={styles.privacyIcon}>🛡️</Text>
-          </View>
-          <View style={styles.privacyContent}>
-            <Text style={styles.privacyTitle}>Private & Honest</Text>
-            <Text style={styles.privacyText}>
-              {t('welcome.privacyNotice')}
-            </Text>
-          </View>
+        <Animated.View entering={FadeInUp.duration(220).delay(160)} style={styles.copy}>
+          <AppText variant="displayLgMobile" style={styles.title}>
+            {t('welcome.referenceTitle', {
+              defaultValue: 'A financial plan built around your real life.',
+            })}
+          </AppText>
+          <AppText variant="bodyLg" style={styles.description}>
+            {t('welcome.referenceDescription', {
+              defaultValue: 'Take control of your future with a personalized roadmap. Plan your spending, track your goals, and find stability in every decision.',
+            })}
+          </AppText>
         </Animated.View>
 
-        {/* Actions */}
-        <Animated.View entering={FadeInUp.duration(600).delay(900)} style={styles.actions}>
+        <Animated.View entering={FadeInUp.duration(220).delay(210)} style={styles.actions}>
           <Button
-            title={t('welcome.getStarted')}
+            title={t('onboarding.entry.continueLocal')}
             onPress={() => router.push('/onboarding/quiz')}
-            variant="primary"
             style={styles.primaryButton}
           />
           <Button
-            title={t('welcome.signIn')}
-            onPress={() => router.push('/auth')}
+            title={t('onboarding.entry.createAccount')}
+            onPress={() => router.push({ pathname: '/auth', params: { mode: 'signup' } })}
             variant="secondary"
             style={styles.secondaryButton}
           />
+          <Button
+            title={t('onboarding.entry.signIn')}
+            onPress={() => router.push('/auth')}
+            variant="text"
+          />
         </Animated.View>
-      </View>
+
+        <Animated.View entering={FadeIn.duration(200).delay(250)} style={styles.privacyRow}>
+          <View style={styles.privacyIcon}>
+            <Ionicons name="lock-closed-outline" size={20} color={COLORS.secondary} />
+          </View>
+          <AppText variant="supporting" style={styles.privacyText}>
+            {t('onboarding.entry.localWarning')}
+          </AppText>
+        </Animated.View>
+
+        <View style={styles.footer}>
+          <Pressable onPress={() => router.push('/profile/legal/terms')} accessibilityRole="link">
+            <AppText variant="supporting" style={styles.footerLink}>
+              {t('legal.terms', { defaultValue: 'Terms' })}
+            </AppText>
+          </Pressable>
+          <Pressable onPress={() => router.push('/profile/security')} accessibilityRole="link">
+            <AppText variant="supporting" style={styles.footerLink}>
+              {t('profile.security', { defaultValue: 'Security' })}
+            </AppText>
+          </Pressable>
+          <Pressable onPress={() => router.push('/profile/contact')} accessibilityRole="link">
+            <AppText variant="supporting" style={styles.footerLink}>
+              {t('profile.support', { defaultValue: 'Support' })}
+            </AppText>
+          </Pressable>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f6f8fc', // Tinted premium neutral background
+    backgroundColor: COLORS.background,
   },
   content: {
-    flex: 1,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
     paddingHorizontal: SPACING.lg,
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.xl * 1.5,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xl,
   },
-  brandSection: {
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandLogo: {
+    width: 154,
+    height: 63,
+  },
+  languageButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  languageText: {
+    color: COLORS.primary,
+  },
+  pressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.98 }],
+  },
+  visual: {
+    height: 270,
     marginTop: SPACING.lg,
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 20, // Organic shape/squircle-like radius
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+  metricCard: {
+    position: 'absolute',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surfaceContainerLowest,
     ...SHADOWS.md,
   },
-  logoText: {
-    ...TYPOGRAPHY.h2,
-    color: COLORS.white,
-    fontWeight: '800',
-    letterSpacing: 1,
+  growthCard: {
+    left: 0,
+    bottom: 18,
   },
-  brandName: {
-    ...TYPOGRAPHY.h1,
+  fundCard: {
+    right: 0,
+    top: 72,
+  },
+  metricLabel: {
+    color: COLORS.textSecondary,
+  },
+  metricAmount: {
     color: COLORS.primary,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 22,
+    lineHeight: 28,
   },
-  heroSection: {
-    alignItems: 'center',
-    marginVertical: SPACING.xl,
-    gap: SPACING.sm,
+  copy: {
+    maxWidth: 540,
+    marginTop: SPACING.sm,
+    gap: SPACING.md,
   },
   title: {
-    ...TYPOGRAPHY.displayLgMobile,
     color: COLORS.primary,
-    textAlign: 'center',
-    lineHeight: 40,
-    letterSpacing: -0.8, // Negative tracking on big headings
-  },
-  subtitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.darkEmerald,
-    textAlign: 'center',
-    fontSize: 15,
+    fontSize: 34,
+    lineHeight: 42,
+    letterSpacing: -1.1,
   },
   description: {
-    ...TYPOGRAPHY.bodyMedium,
     color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24, // Let the paragraph breathe
-    paddingHorizontal: SPACING.md,
-  },
-  privacyCard: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.75)', // Glassmorphic background
-    borderWidth: 1,
-    borderColor: 'rgba(7, 30, 61, 0.06)',
-    borderLeftWidth: 5,
-    borderLeftColor: COLORS.emerald, // Clean left stripe accent
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    gap: SPACING.md,
-    ...SHADOWS.sm,
-  },
-  privacyIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(72, 199, 116, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  privacyIcon: {
-    fontSize: 22,
-  },
-  privacyContent: {
-    flex: 1,
-  },
-  privacyTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
-  },
-  privacyText: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
+    lineHeight: 30,
   },
   actions: {
     gap: SPACING.sm,
-    width: '100%',
+    marginTop: SPACING.xl,
   },
   primaryButton: {
-    width: '100%',
-    height: 56,
+    minHeight: 56,
   },
   secondaryButton: {
-    width: '100%',
-    height: 48,
+    minHeight: 52,
+  },
+  privacyRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.xl,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+  },
+  privacyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.mintBackground,
+  },
+  privacyText: {
+    flex: 1,
+    color: COLORS.textPrimary,
+  },
+  footer: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+    marginTop: SPACING.xl,
+    paddingTop: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.outlineVariant,
+  },
+  footerLink: {
+    color: COLORS.textSecondary,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    backgroundColor: COLORS.background,
   },
 });

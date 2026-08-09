@@ -1,19 +1,15 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+import {
+  normalizeLanguageCode,
+  SUPPORTED_LANGUAGES,
+} from '../../services/localization/languages';
+import { FlagIcon } from './FlagIcon';
+import AppText from '../Text/AppText';
 
-export interface LanguageOption {
-  key: string;
-  label: string;
-  shortLabel: string;
-  flag: string;
-}
-
-const LANGUAGES: LanguageOption[] = [
-  { key: 'en', label: 'English', shortLabel: 'EN', flag: '🇺🇸' },
-  { key: 'fr', label: 'Français', shortLabel: 'FR', flag: '🇫🇷' },
-  { key: 'ar', label: 'العربية', shortLabel: 'AR', flag: '🇲🇦' },
-];
+export type LanguageOption = (typeof SUPPORTED_LANGUAGES)[number];
+const LANGUAGES = SUPPORTED_LANGUAGES;
 
 interface LanguageSelectorProps {
   selectedLanguage: string;
@@ -28,7 +24,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   disabled = false,
   style,
 }) => {
-  const currentLang = (selectedLanguage || 'en').substring(0, 2).toLowerCase();
+  const currentLang = normalizeLanguageCode(selectedLanguage);
 
   return (
     <View style={[styles.container, style]}>
@@ -40,16 +36,26 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
             onPress={() => !disabled && onSelectLanguage(lang.key)}
             disabled={disabled}
             activeOpacity={isSelected ? 1 : 0.7}
+            accessibilityRole="radio"
+            accessibilityLabel={`${lang.label}, ${lang.shortLabel}`}
+            accessibilityState={{ selected: isSelected, disabled }}
             style={[
               styles.optionBtn,
               isSelected && styles.optionBtnSelected,
               disabled && styles.disabledBtn,
             ]}
           >
-            <Text style={styles.flagText}>{lang.flag}</Text>
-            <Text style={[styles.labelStyle, isSelected && styles.labelStyleSelected]}>
-              {lang.shortLabel}
-            </Text>
+            <FlagIcon countryCode={lang.countryCode} size={18} />
+            <AppText
+              variant="labelSm"
+              style={[
+                styles.labelStyle,
+                lang.key === 'ar' && styles.arabicLanguageText,
+                isSelected && styles.labelStyleSelected,
+              ]}
+            >
+              {lang.label}
+            </AppText>
           </TouchableOpacity>
         );
       })}
@@ -60,13 +66,14 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.xs,
   },
   optionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
@@ -74,14 +81,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   optionBtnSelected: {
-    borderColor: COLORS.primary,
+    borderColor: COLORS.secondary,
     backgroundColor: COLORS.secondaryContainer,
   },
   disabledBtn: {
     opacity: 0.5,
-  },
-  flagText: {
-    fontSize: 14,
   },
   labelStyle: {
     ...TYPOGRAPHY.labelSm,
@@ -90,6 +94,9 @@ const styles = StyleSheet.create({
   },
   labelStyleSelected: {
     color: COLORS.onSecondaryContainer,
+  },
+  arabicLanguageText: {
+    fontFamily: 'Cairo',
   },
 });
 

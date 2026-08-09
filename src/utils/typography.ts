@@ -1,12 +1,12 @@
 // src/utils/typography.ts
 
-export type SupportedLocale = 'en' | 'fr' | 'ar';
+export type SupportedLocale = 'en' | 'fr' | 'ar' | 'es' | 'de' | 'pt' | 'it' | 'nl' | 'tr';
 export type FontWeight = 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold';
 
 /**
  * Returns the resolved custom font family name based on the active language locale and weight.
- * English/French resolves to Plus Jakarta Sans.
- * Arabic resolves to Changa.
+ * Latin-script languages resolve to Space Grotesk.
+ * Arabic resolves exclusively to Cairo.
  */
 export function getFontFamily(
   locale: string,
@@ -18,18 +18,18 @@ export function getFontFamily(
 
   const families = isArabic
     ? {
-        regular: 'Changa_400Regular',
-        medium: 'Changa_500Medium',
-        semibold: 'Changa_600SemiBold',
-        bold: 'Changa_700Bold',
-        extrabold: 'Changa_800ExtraBold',
+        regular: 'Cairo',
+        medium: 'Cairo',
+        semibold: 'Cairo',
+        bold: 'Cairo',
+        extrabold: 'Cairo',
       }
     : {
-        regular: 'PlusJakartaSans_400Regular',
-        medium: 'PlusJakartaSans_500Medium',
-        semibold: 'PlusJakartaSans_600SemiBold',
-        bold: 'PlusJakartaSans_700Bold',
-        extrabold: 'PlusJakartaSans_800ExtraBold',
+        regular: 'SpaceGrotesk_400Regular',
+        medium: 'SpaceGrotesk_500Medium',
+        semibold: 'SpaceGrotesk_600SemiBold',
+        bold: 'SpaceGrotesk_700Bold',
+        extrabold: 'SpaceGrotesk_700Bold',
       };
 
   return families[weight] || families.regular;

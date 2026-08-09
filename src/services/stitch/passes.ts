@@ -27,7 +27,7 @@ export function buildSavingsGoalClass(issuerId: string): PassClassDefinition {
     type: 'savingsGoal',
     classId: 'savings_goal_v1',
     issuerId,
-    title: 'FinPath Savings Goal',
+    title: 'Pocket Ahead Savings Goal',
     description: 'Track your personal savings goal progress',
   };
 }
@@ -65,7 +65,7 @@ export function buildDebtMilestoneClass(issuerId: string): PassClassDefinition {
     type: 'debtMilestone',
     classId: 'debt_milestone_v1',
     issuerId,
-    title: 'FinPath Debt Milestone',
+    title: 'Pocket Ahead Debt Milestone',
     description: 'Track your debt payoff progress',
   };
 }
@@ -102,7 +102,7 @@ export function buildEmergencyFundClass(issuerId: string): PassClassDefinition {
     type: 'emergencyFund',
     classId: 'emergency_fund_v1',
     issuerId,
-    title: 'FinPath Emergency Fund',
+    title: 'Pocket Ahead Emergency Fund',
     description: 'Your emergency protection buffer status',
   };
 }

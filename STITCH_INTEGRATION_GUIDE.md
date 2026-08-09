@@ -1,6 +1,6 @@
 # Stitch Design Import & Integration Guide
 
-This guide explains how to import a pass design from Stitch (Google Wallet) into FinPath and wire it into your React Native development environment.
+This guide explains how to import a pass design from Stitch (Google Wallet) into Pocket Ahead and wire it into the React Native application.
 
 ---
 
@@ -17,7 +17,7 @@ This guide explains how to import a pass design from Stitch (Google Wallet) into
 
 ### Step 1: Define Pass Classes in Stitch Console
 
-Log into the Stitch console and create your pass classes. FinPath currently supports:
+Log into the Stitch console and create your pass classes. Pocket Ahead currently supports:
 
 | Class ID | Type | Description |
 |----------|------|-------------|
@@ -58,7 +58,7 @@ const stitchClient = createStitchClient({
 });
 ```
 
-### Step 4: Create Pass Objects from FinPath Data
+### Step 4: Create pass objects from Pocket Ahead data
 
 Use the pass factories to generate pass objects from user financial data:
 
@@ -161,6 +161,6 @@ import { PassCard } from '../components/ui/PassCard';
 
 ## 6. Next Steps
 
-- Connect pass creation to the **Goals tab** in FinPath (`src/app/(tabs)/goals/index.tsx`)
+- Connect pass creation to the **Goals tab** in Pocket Ahead (`src/app/(tabs)/goals/index.tsx`)
 - Add pass management to the **Profile tab**
 - Implement server-side proxy for secure pass creation

@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, GestureResponderEvent, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, GestureResponderEvent, Dimensions, TouchableOpacity } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Line, Text as SvgText, Circle, G, ClipPath, Rect } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedProps, withTiming, FadeInUp, withDelay } from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
 import { formatCurrency } from '../../utils/currency';
 import { DebtInfo } from '../../store/onboardingStore';
 import { calculateAmortizationSchedule } from '../../features/financial-engine/goalCalculations';
+import AppText from '../Text/AppText';
+import { useTranslation } from 'react-i18next';
 
 const CHART_HEIGHT = 160;
 const CHART_PADDING_LEFT = 45;
@@ -27,6 +29,8 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
   monthlySave,
   currencySymbol,
 }) => {
+  const { i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage || i18n.language;
   const [windowWidth, setWindowWidth] = useState(() => Dimensions.get('window').width);
   const chartWidth = Math.min(windowWidth - SPACING.lg * 2 - 32, 450);
 
@@ -38,7 +42,7 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
     return out;
   }, [initialSaved, monthlySave]);
 
-  const { maxVal, minVal, valRange, points, pathD, areaD } = useMemo(() => {
+  const { minVal, valRange, points, pathD, areaD } = useMemo(() => {
     const maxValLocal = Math.max(...data, 1000);
     const minValLocal = Math.min(...data, 0);
     const valRangeLocal = maxValLocal - minValLocal;
@@ -75,9 +79,9 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
     return [0, 0.5, 1].map((ratio) => {
       const val = minVal + ratio * (valRange || 1);
       const y = CHART_PADDING_TOP + (1 - ratio) * (CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM);
-      return { val, y, formatted: formatCurrency(val, currencySymbol).split('.')[0] };
+      return { val, y, formatted: formatCurrency(val, currencySymbol, locale, 0) };
     });
-  }, [points.length, minVal, valRange, currencySymbol]);
+  }, [points.length, minVal, valRange, currencySymbol, locale]);
 
   const drawProgress = useSharedValue(0);
   const circleOpacity = useSharedValue(0);
@@ -87,7 +91,7 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
     circleOpacity.value = 0;
     drawProgress.value = withTiming(1, { duration: 800 });
     circleOpacity.value = withDelay(600, withTiming(1, { duration: 300 }));
-  }, [initialSaved, monthlySave]);
+  }, [initialSaved, monthlySave, circleOpacity, drawProgress]);
 
   const animatedClipProps = useAnimatedProps(() => {
     const usableWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
@@ -112,8 +116,8 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
 
   return (
     <Animated.View entering={FadeInUp.duration(400)} style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>12-Month Savings Trajectory</Text>
-      <Text style={styles.chartSubtitle}>Based on currently planned allocations</Text>
+      <AppText variant="bodySemiBold" style={styles.chartTitle}>12-Month Savings Trajectory</AppText>
+      <AppText variant="caption" style={styles.chartSubtitle}>Based on currently planned allocations</AppText>
 
       <View onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onResponderGrant={handleTouch} onResponderMove={handleTouch} onResponderRelease={handleTouchRelease} onResponderTerminate={handleTouchRelease} style={{ position: 'relative' }}>
         <Svg width={chartWidth} height={CHART_HEIGHT}>
@@ -130,13 +134,13 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
           {gridLabels.map(({ val, y, formatted }, idx) => (
             <G key={idx}>
               <Line x1={CHART_PADDING_LEFT} y1={y} x2={chartWidth - CHART_PADDING_RIGHT} y2={y} stroke={COLORS.border} strokeWidth={1} strokeDasharray="4 4" />
-              <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontSize={9} fill={COLORS.textSecondary} textAnchor="end">{formatted}</SvgText>
+              <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontFamily={TYPOGRAPHY.caption.fontFamily} fontSize={9} fill={COLORS.textSecondary} textAnchor="end">{formatted}</SvgText>
             </G>
           ))}
 
           {[0, 3, 6, 9, steps].map((monthIdx) => {
             const x = CHART_PADDING_LEFT + (monthIdx / steps) * (chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT);
-            return <SvgText key={monthIdx} x={x} y={CHART_HEIGHT - 6} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">M{monthIdx}</SvgText>;
+            return <SvgText key={monthIdx} x={x} y={CHART_HEIGHT - 6} fontFamily={TYPOGRAPHY.caption.fontFamily} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">M{monthIdx}</SvgText>;
           })}
 
           <G clipPath="url(#savingsClipPath)">
@@ -160,8 +164,8 @@ export const SavingsProjectionChart: React.FC<SavingsChartProps> = ({
         </Svg>
         {hoveredIndex !== null && points[hoveredIndex] && (
           <View style={[styles.tooltip, { left: Math.max(CHART_PADDING_LEFT, Math.min(points[hoveredIndex].x - 60, chartWidth - CHART_PADDING_RIGHT - 120)), top: Math.max(CHART_PADDING_TOP - 10, points[hoveredIndex].y - 45) }]} pointerEvents="none">
-            <Text style={styles.tooltipTitle}>Month {hoveredIndex}</Text>
-            <Text style={styles.tooltipValue}>{formatCurrency(data[hoveredIndex], currencySymbol).split('.')[0]}</Text>
+            <AppText variant="labelSm" style={styles.tooltipTitle}>Month {hoveredIndex}</AppText>
+            <AppText variant="bodySemiBold" style={styles.tooltipValue}>{formatCurrency(data[hoveredIndex], currencySymbol, locale, 0)}</AppText>
           </View>
         )}
       </View>
@@ -175,11 +179,13 @@ interface DebtAmortizationProps {
   currencySymbol: string;
 }
 
-export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(({
+export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(function DebtPaydownChart({
   debts,
   availableSurplus,
   currencySymbol,
-}) => {
+}) {
+  const { i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage || i18n.language;
   const [windowWidth, setWindowWidth] = useState(() => Dimensions.get('window').width);
   const chartWidth = Math.min(windowWidth - SPACING.lg * 2 - 32, 450);
 
@@ -210,7 +216,7 @@ export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(({
     circleOpacity.value = 0;
     drawProgress.value = withTiming(1, { duration: 800 });
     circleOpacity.value = withDelay(600, withTiming(1, { duration: 300 }));
-  }, [activeMethod, debts, availableSurplus]);
+  }, [activeMethod, debts, availableSurplus, circleOpacity, drawProgress]);
 
   const animatedClipProps = useAnimatedProps(() => {
     const usableWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
@@ -256,24 +262,24 @@ export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(({
     return [0, 0.5, 1].map((ratio) => {
       const val = ratio * (maxVal || 1);
       const y = CHART_PADDING_TOP + (1 - ratio) * (CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM);
-      return { val, y, formatted: formatCurrency(val, currencySymbol).split('.')[0] };
+      return { val, y, formatted: formatCurrency(val, currencySymbol, locale, 0) };
     });
-  }, [maxVal, currencySymbol]);
+  }, [maxVal, currencySymbol, locale]);
 
   return (
     <Animated.View entering={FadeInUp.duration(400)} style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Debt Amortization Projection</Text>
+      <AppText variant="bodySemiBold" style={styles.chartTitle}>Debt Amortization Projection</AppText>
 
       <View style={styles.toggleRow}>
         <TouchableOpacity style={[styles.toggleBtn, activeMethod === 'avalanche' && styles.toggleBtnActive]} onPress={() => setActiveMethod('avalanche')}>
-          <Text style={[styles.toggleBtnText, activeMethod === 'avalanche' && styles.toggleBtnTextActive]}>Avalanche (High Rate First)</Text>
+          <AppText variant="labelSm" style={[styles.toggleBtnText, activeMethod === 'avalanche' && styles.toggleBtnTextActive]}>Avalanche (High Rate First)</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.toggleBtn, activeMethod === 'snowball' && styles.toggleBtnActive]} onPress={() => setActiveMethod('snowball')}>
-          <Text style={[styles.toggleBtnText, activeMethod === 'snowball' && styles.toggleBtnTextActive]}>Snowball (Smallest Bal First)</Text>
+          <AppText variant="labelSm" style={[styles.toggleBtnText, activeMethod === 'snowball' && styles.toggleBtnTextActive]}>Snowball (Smallest Bal First)</AppText>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.chartSubtitle}>{activeMethod === 'avalanche' ? `Avalanche: Clears all outstanding debts in ${avalanche.clearedIn}` : `Snowball: Clears all outstanding debts in ${snowball.clearedIn}`}</Text>
+      <AppText variant="caption" style={styles.chartSubtitle}>{activeMethod === 'avalanche' ? `Avalanche: Clears all outstanding debts in ${avalanche.clearedIn}` : `Snowball: Clears all outstanding debts in ${snowball.clearedIn}`}</AppText>
 
       <View onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onResponderGrant={handleTouch} onResponderMove={handleTouch} onResponderRelease={handleTouchRelease} onResponderTerminate={handleTouchRelease} style={{ position: 'relative' }}>
         <Svg width={chartWidth} height={CHART_HEIGHT}>
@@ -286,13 +292,13 @@ export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(({
           {gridLabels.map(({ val, y, formatted }, idx) => (
             <G key={idx}>
               <Line x1={CHART_PADDING_LEFT} y1={y} x2={chartWidth - CHART_PADDING_RIGHT} y2={y} stroke={COLORS.border} strokeWidth={1} strokeDasharray="4 4" />
-              <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontSize={9} fill={COLORS.textSecondary} textAnchor="end">{formatted}</SvgText>
+              <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontFamily={TYPOGRAPHY.caption.fontFamily} fontSize={9} fill={COLORS.textSecondary} textAnchor="end">{formatted}</SvgText>
             </G>
           ))}
 
           {[0, Math.floor(steps / 2), steps].map((stepIdx) => {
             const x = CHART_PADDING_LEFT + (stepIdx / (steps || 1)) * (chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT);
-            return <SvgText key={stepIdx} x={x} y={CHART_HEIGHT - 6} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">M{stepIdx}</SvgText>;
+            return <SvgText key={stepIdx} x={x} y={CHART_HEIGHT - 6} fontFamily={TYPOGRAPHY.caption.fontFamily} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">M{stepIdx}</SvgText>;
           })}
 
           <G clipPath="url(#debtClipPath)">
@@ -312,8 +318,8 @@ export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(({
         </Svg>
         {hoveredIndex !== null && points[hoveredIndex] && (
           <View style={[styles.tooltip, { left: Math.max(CHART_PADDING_LEFT, Math.min(points[hoveredIndex].x - 60, chartWidth - CHART_PADDING_RIGHT - 120)), top: Math.max(CHART_PADDING_TOP - 10, points[hoveredIndex].y - 45) }]} pointerEvents="none">
-            <Text style={styles.tooltipTitle}>Month {hoveredIndex}</Text>
-            <Text style={styles.tooltipValue}>{formatCurrency(selectedData[hoveredIndex], currencySymbol).split('.')[0]}</Text>
+            <AppText variant="labelSm" style={styles.tooltipTitle}>Month {hoveredIndex}</AppText>
+            <AppText variant="bodySemiBold" style={styles.tooltipValue}>{formatCurrency(selectedData[hoveredIndex], currencySymbol, locale, 0)}</AppText>
           </View>
         )}
       </View>
@@ -322,15 +328,15 @@ export const DebtPaydownChart: React.FC<DebtAmortizationProps> = React.memo(({
 });
 
 const styles = StyleSheet.create({
-  chartContainer: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, padding: SPACING.md, marginVertical: SPACING.sm, alignItems: 'center' },
+  chartContainer: { backgroundColor: COLORS.surfaceContainerLowest, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, padding: SPACING.md, marginVertical: SPACING.sm, alignItems: 'center' },
   chartTitle: { ...TYPOGRAPHY.bodySemiBold, color: COLORS.primary, fontSize: 14, alignSelf: 'flex-start' },
   chartSubtitle: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, fontSize: 11, alignSelf: 'flex-start', marginBottom: SPACING.sm },
   toggleRow: { flexDirection: 'row', alignSelf: 'flex-start', gap: SPACING.sm, marginVertical: SPACING.xs, width: '100%' },
   toggleBtn: { flex: 1, height: 32, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center' },
-  toggleBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  toggleBtnActive: { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.primaryContainer },
   toggleBtnText: { fontSize: 9, fontWeight: '700', color: COLORS.textSecondary },
   toggleBtnTextActive: { color: COLORS.white },
-  tooltip: { position: 'absolute', backgroundColor: COLORS.primary, borderRadius: RADIUS.xs, paddingVertical: 4, paddingHorizontal: SPACING.xs, alignItems: 'center', justifyContent: 'center', ...SHADOWS.sm, width: 120, zIndex: 999 },
+  tooltip: { position: 'absolute', backgroundColor: COLORS.primaryContainer, borderRadius: RADIUS.xs, paddingVertical: 4, paddingHorizontal: SPACING.xs, alignItems: 'center', justifyContent: 'center', ...SHADOWS.sm, width: 120, zIndex: 999 },
   tooltipTitle: { fontSize: 9, fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', textTransform: 'uppercase' },
   tooltipValue: { fontSize: 12, fontWeight: '700', color: COLORS.white },
 });

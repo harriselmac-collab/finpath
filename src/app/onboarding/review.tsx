@@ -1,269 +1,102 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInUp } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/theme';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
+
+import AppText from '../../components/Text/AppText';
+import { Button, Card } from '../../components/ui';
+import { COLORS, RADIUS, SPACING } from '../../constants/theme';
+import { calculateActiveFinancialPeriod } from '../../features/financial-engine/activePeriod';
+import { resolveIncomeTiming } from '../../features/onboarding/incomeSchedule';
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { QUIZ_QUESTIONS } from '../../features/onboarding/quizFlow';
+import { formatCurrency } from '../../utils/currency';
 
 export default function ReviewScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
-  const { answers, debts, setCurrentStep } = useOnboardingStore();
+  const { t, i18n } = useTranslation();
+  const { answers, setOnboardingCompleted, setCurrentStep } = useOnboardingStore();
+  const currency = answers.currency || 'MAD';
+  const locale = i18n.resolvedLanguage || i18n.language;
+  const today = new Date();
+  const incomeTiming = resolveIncomeTiming(answers, today);
+  const nextIncomeDate = incomeTiming.calculationDate;
+  const result = calculateActiveFinancialPeriod({
+    periodStart: today.toISOString().slice(0, 10),
+    nextIncomeDate,
+    plannedIncome: Number(answers.availableBalance || 0),
+    plannedEssential: Number(answers.essentialBillsDue || 0),
+    plannedFlexible: Number(answers.upcomingFlexibleSpending || 0),
+    plannedDebt: Number(answers.debtMinimumDue || 0),
+    protectedBuffer: Number(answers.protectedBuffer || 0) + Number(answers.savingsGoalAmount || 0),
+    currency,
+    transactions: [],
+    commitments: Number(answers.annualExpenseDue || 0) > 0
+      ? [{ id: 'annual-expense', amount: Number(answers.annualExpenseDue), dueDate: nextIncomeDate, paid: false }]
+      : [],
+    now: today,
+  });
+  const money = (amount: number) => formatCurrency(amount, currency, locale);
+  const metrics = [
+    ['availableUntilIncome', Number(answers.availableBalance || 0)],
+    ['commitmentsDue', result.remainingEssentialCommitments],
+    ['safeToSpend', result.safeToSpendTotal],
+    ['safeDaily', result.safeDailySpending],
+    ['projectedBalance', result.projectedBalanceBeforeNextIncome],
+  ] as const;
 
-  const sections = [
-    { id: 'personal', nameKey: 'onboarding.sections.personal' },
-    { id: 'income', nameKey: 'onboarding.sections.income' },
-    { id: 'housing', nameKey: 'onboarding.sections.housing' },
-    { id: 'family', nameKey: 'onboarding.sections.family' },
-    { id: 'vehicle', nameKey: 'onboarding.sections.vehicle' },
-    { id: 'healthcare', nameKey: 'onboarding.sections.healthcare' },
-    { id: 'debt', nameKey: 'onboarding.sections.debt' },
-    { id: 'bills', nameKey: 'onboarding.sections.bills' },
-    { id: 'annual', nameKey: 'onboarding.sections.annual' },
-    { id: 'habits', nameKey: 'onboarding.sections.habits' },
-    { id: 'cultural', nameKey: 'onboarding.sections.cultural' },
-  ];
-
-  // Navigate back to the first question of the edited section
-  const handleEditSection = (sectionId: string) => {
-    // Find index of the first question belonging to this section in the active question set
-    // Let's compute active questions first
-    const activeQuestions = QUIZ_QUESTIONS.filter((q) => {
-      if (q.showIf) return q.showIf(answers);
-      return true;
-    });
-
-    const firstIndex = activeQuestions.findIndex((q) => q.section === sectionId);
-    if (firstIndex !== -1) {
-      setCurrentStep(firstIndex);
-      router.push('/onboarding/quiz');
-    } else {
-      // If the section doesn't have active questions, fall back to first step
-      setCurrentStep(0);
-      router.push('/onboarding/quiz');
-    }
-  };
-
-  const handleConfirm = () => {
-    router.push('/onboarding/essential-expenses');
-  };
-
-  const renderSectionContent = (sectionId: string) => {
-    const currency = answers['currency'] || 'MAD';
-
-    // Filter questions belonging to this section
-    const sectionQuestions = QUIZ_QUESTIONS.filter((q) => q.section === sectionId);
-
-    // If section is debt, display the debts list in addition
-    if (sectionId === 'debt') {
-      const hasDebt = answers['hasDebt'];
-      return (
-        <View style={styles.sectionFields}>
-          <Text style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Has active debt: </Text>
-            <Text style={styles.fieldValue}>{hasDebt ? 'Yes' : 'No'}</Text>
-          </Text>
-          {hasDebt && debts.length > 0 && (
-            <View style={styles.debtsReviewList}>
-              {debts.map((d, index) => (
-                <Text key={index} style={styles.debtFieldText}>
-                  • {d.type}: {currency} {d.totalAmount} (Interest: {d.interestRate}%, Min Payment: {currency} {d.minimumPayment})
-                </Text>
-              ))}
-            </View>
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.sectionFields}>
-        {sectionQuestions.map((q) => {
-          // If the question is not active in the flow, skip rendering it
-          if (q.showIf && !q.showIf(answers)) return null;
-
-          const val = answers[q.id];
-          let displayVal = 'N/A';
-
-          if (val === true) displayVal = t('common.yes');
-          else if (val === false) displayVal = t('common.no');
-          else if (val !== undefined && val !== null) displayVal = val.toString();
-
-          // Add currency symbol to currency fields
-          if (q.type === 'currency' && val !== undefined && val !== null) {
-            displayVal = `${currency} ${val}`;
-          }
-
-          // Check if there are notes for this field
-          const notes = answers[`${q.id}_notes`];
-
-          return (
-            <View key={q.id} style={styles.fieldItem}>
-              <Text style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>{t(q.titleKey)}: </Text>
-                <Text style={styles.fieldValue}>{displayVal}</Text>
-              </Text>
-              {notes ? (
-                <Text style={styles.fieldNotes}>💬 {notes}</Text>
-              ) : null}
-            </View>
-          );
-        })}
-      </View>
-    );
+  const usePlan = () => {
+    setOnboardingCompleted(true);
+    router.replace('/dashboard');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('onboarding.reviewTitle')}</Text>
-        <Text style={styles.subtitle}>{t('onboarding.reviewSubtitle')}</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.content} role="main">
+        <View style={styles.heading}>
+          <AppText role="heading" aria-level={1} variant="h1" style={styles.title}>
+            {t('onboarding.minimum.resultTitle')}
+          </AppText>
+          <AppText variant="body" style={styles.subtitle}>{t('onboarding.minimum.resultSubtitle')}</AppText>
+          {!incomeTiming.expectedDate && (
+            <AppText variant="supporting" style={styles.subtitle}>{t('dashboard.dailyEstimate')}</AppText>
+          )}
+        </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {sections.map((section, index) => {
-          // Check if this section has any active questions
-          const hasActiveQuestions = QUIZ_QUESTIONS.some((q) => {
-            if (q.section !== section.id) return false;
-            if (q.showIf) return q.showIf(answers);
-            return true;
-          });
+        <Card style={styles.resultCard} shadow="none">
+          {metrics.map(([key, value], index) => (
+            <View key={key} style={[styles.metric, index > 0 && styles.metricBorder]}>
+              <AppText variant="supporting" style={styles.metricLabel}>{t(`onboarding.minimum.${key}`)}</AppText>
+              <AppText variant="financialAmount" style={[styles.metricValue, key === 'safeToSpend' && styles.heroValue]}>
+                {money(value)}
+              </AppText>
+            </View>
+          ))}
+        </Card>
 
-          if (!hasActiveQuestions && section.id !== 'debt') return null;
+        <View style={styles.localNotice}>
+          <AppText variant="supporting" style={styles.noticeText}>{t('onboarding.minimum.localNotice')}</AppText>
+        </View>
 
-          return (
-            <Animated.View
-              key={section.id}
-              entering={FadeInUp.delay(index * 60).duration(400)}
-            >
-              <Card style={styles.sectionCard}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>{t(section.nameKey)}</Text>
-                  <Button
-                    title={t('common.edit')}
-                    onPress={() => handleEditSection(section.id)}
-                    variant="text"
-                    style={styles.editBtn}
-                  />
-                </View>
-                <View style={styles.divider} />
-                {renderSectionContent(section.id)}
-              </Card>
-            </Animated.View>
-          );
-        })}
+        <Button title={t('onboarding.minimum.usePlan')} onPress={usePlan} />
+        <Button title={t('onboarding.minimum.editAnswers')} onPress={() => { setCurrentStep(3); router.replace('/onboarding/quiz'); }} variant="text" />
       </ScrollView>
-
-
-      <View style={styles.footer}>
-        <Button
-          title="Confirm & View Essential Expenses"
-          onPress={handleConfirm}
-          variant="primary"
-          style={styles.confirmBtn}
-        />
-      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.warmBackground,
-  },
-  header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
-  },
-  title: {
-    ...TYPOGRAPHY.h2,
-    color: COLORS.primary,
-  },
-  subtitle: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  scrollContent: {
-    padding: SPACING.lg,
-    gap: SPACING.md,
-  },
-  sectionCard: {
-    marginBottom: SPACING.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.primary,
-    fontSize: 16,
-  },
-  editBtn: {
-    paddingVertical: 0,
-    height: 'auto',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: SPACING.sm,
-  },
-  sectionFields: {
-    gap: SPACING.xs,
-  },
-  fieldItem: {
-    marginBottom: SPACING.xs,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  fieldLabel: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  fieldValue: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-  },
-  fieldNotes: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.primary,
-    fontStyle: 'italic',
-    marginTop: 2,
-    marginLeft: SPACING.sm,
-  },
-  debtsReviewList: {
-    marginTop: SPACING.xs,
-    paddingLeft: SPACING.sm,
-    gap: 2,
-  },
-  debtFieldText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textPrimary,
-  },
-  footer: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
-  },
-  confirmBtn: {
-    width: '100%',
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: SPACING.lg, gap: SPACING.lg },
+  heading: { gap: SPACING.sm },
+  title: { color: COLORS.primary },
+  subtitle: { color: COLORS.textSecondary },
+  resultCard: { padding: 0, overflow: 'hidden', borderRadius: RADIUS.lg },
+  metric: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: 4 },
+  metricBorder: { borderTopWidth: 1, borderTopColor: COLORS.outlineVariant },
+  metricLabel: { color: COLORS.textSecondary },
+  metricValue: { color: COLORS.primary },
+  heroValue: { fontSize: 34, lineHeight: 42 },
+  localNotice: { padding: SPACING.md, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceContainerLow },
+  noticeText: { color: COLORS.textPrimary },
 });

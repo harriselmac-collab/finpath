@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { Button } from './Button';
+import AppText from '../Text/AppText';
 
 export interface EmptyStateProps {
   icon?: string;
@@ -28,8 +29,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       <View style={styles.iconContainer}>
         <Ionicons name={icon as any} size={48} color={COLORS.textSecondary} />
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {description && <Text style={styles.description}>{description}</Text>}
+      <AppText variant="headlineMd" style={styles.title}>{title}</AppText>
+      {description && <AppText variant="bodyMedium" style={styles.description}>{description}</AppText>}
       
       <View style={styles.actions}>
         {actionLabel && onAction && (

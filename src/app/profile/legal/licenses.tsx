@@ -34,7 +34,7 @@ export default function LegalLicensesScreen() {
         <Card style={styles.card}>
           <Text style={styles.sectionHeader}>Third-party Licences</Text>
           <Text style={styles.bodyText}>
-            FinPath is built using open-source packages. Below is a list of the core dependencies and their licensing:
+            Pocket Ahead is built using open-source packages. Below is a list of the core dependencies and their licensing:
           </Text>
 
           {dependencies.map((dep) => (

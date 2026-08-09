@@ -10,10 +10,16 @@ import {
   StyleProp,
   GestureResponderEvent,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import AppText from '../../components/Text/AppText';
 
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 export interface ButtonProps {
   title: string;
@@ -37,6 +43,7 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const scale = useSharedValue(1);
+  const reduceMotion = useReducedMotion();
 
   const getButtonStyles = (): any[] => {
     const stylesList: any[] = [styles.baseButton];
@@ -68,7 +75,7 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const getTextStyle = (): any[] => {
-    const stylesList: any[] = [TYPOGRAPHY.button]; // Base button typography
+    const stylesList: any[] = [];
 
     switch (variant) {
       case 'primary':
@@ -103,14 +110,20 @@ export const Button: React.FC<ButtonProps> = ({
   });
 
   const handlePressIn = () => {
-    if (!disabled && !loading) {
-      scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
+    if (!disabled && !loading && !reduceMotion) {
+      scale.value = withTiming(0.97, {
+        duration: 120,
+        easing: Easing.bezier(0.23, 1, 0.32, 1),
+      });
     }
   };
 
   const handlePressOut = () => {
-    if (!disabled && !loading) {
-      scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    if (!disabled && !loading && !reduceMotion) {
+      scale.value = withTiming(1, {
+        duration: 160,
+        easing: Easing.bezier(0.23, 1, 0.32, 1),
+      });
     }
   };
 
@@ -122,12 +135,12 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={disabled || loading}
       style={[...getButtonStyles(), animatedStyle]}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' || variant === 'destructive' ? '#fff' : COLORS.primary}
+          color={variant === 'primary' ? COLORS.onAction : variant === 'destructive' ? COLORS.onError : COLORS.primary}
         />
       ) : (
         <AppText variant="button" style={getTextStyle()}>
@@ -141,7 +154,7 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   baseButton: {
-    height: 52,
+    minHeight: 52,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
@@ -149,7 +162,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   primaryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.action,
   },
   secondaryButton: {
     backgroundColor: COLORS.secondaryContainer,
@@ -164,20 +177,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error,
   },
   disabledButton: {
-    backgroundColor: COLORS.outlineVariant,
-    borderColor: COLORS.outlineVariant,
+    backgroundColor: COLORS.surfaceDim,
+    borderColor: COLORS.surfaceDim,
   },
   primaryText: {
-    color: COLORS.white,
+    color: COLORS.onAction,
   },
   secondaryText: {
     color: COLORS.onSecondaryContainer,
   },
   textText: {
-    color: COLORS.primary,
+    color: COLORS.secondary,
   },
   destructiveText: {
-    color: COLORS.white,
+    color: COLORS.onError,
   },
   disabledText: {
     color: COLORS.textSecondary,

@@ -1,17 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  I18nManager,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+
+import AppText from '../../components/Text/AppText';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { COLORS, RADIUS, SPACING } from '../../constants/theme';
+import { supabase } from '../../services/supabase/supabaseClient';
+import { isInlineProfileImage, removeProfileImage, uploadProfileImage } from '../../services/supabase/profileImages';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { supabase } from '../../services/supabase/supabaseClient';
+import { createStoredProfileImage, getCenteredSquareCrop } from '../../utils/profileImage';
+import { AppDialog, type AppDialogAction } from '../../components/ui/AppDialog';
+import { useProfileImageUri } from '../../hooks/useProfileImageUri';
+
+const EMPLOYMENT_OPTIONS = ['employed', 'self-employed', 'unemployed', 'retired'] as const;
+
+interface DialogState {
+  title: string;
+  message: string;
+  actions: AppDialogAction[];
+}
+
+const subscribeToHydration = (onStoreChange: () => void) =>
+  useOnboardingStore.persist.onFinishHydration(onStoreChange);
+const getHydrationSnapshot = () => useOnboardingStore.persist.hasHydrated();
+
+async function prepareProfileImage(asset: ImagePicker.ImagePickerAsset) {
+  const context = ImageManipulator.manipulate(asset.uri);
+  const crop = getCenteredSquareCrop(asset.width, asset.height);
+  if (crop) {
+    context.crop(crop);
+    context.resize({ width: 512, height: 512 });
+  } else {
+    context.resize({ width: 512 });
+  }
+
+  const rendered = await context.renderAsync();
+  const saved = await rendered.saveAsync({
+    base64: true,
+    compress: 0.72,
+    format: SaveFormat.JPEG,
+  });
+  if (!saved.base64) throw new Error('Missing encoded image data');
+  return createStoredProfileImage(saved.base64);
+}
 
 export default function EditProfileScreen() {
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydrationSnapshot,
+    () => false,
+  );
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={COLORS.action} />
+      </SafeAreaView>
+    );
+  }
+
+  return <EditProfileForm />;
+}
+
+function EditProfileForm() {
   const router = useRouter();
   const { t } = useTranslation();
   const { answers, setAnswers } = useOnboardingStore();
@@ -20,88 +89,193 @@ export default function EditProfileScreen() {
   const [preferredName, setPreferredName] = useState(answers.preferredName || '');
   const [country, setCountry] = useState(answers.country || '');
   const [city, setCity] = useState(answers.city || '');
-  const [currency, setCurrency] = useState(answers.currency || 'MAD');
   const [ageRange, setAgeRange] = useState(answers.ageRange || '');
   const [employmentStatus, setEmploymentStatus] = useState(answers.employmentStatus || '');
   const [occupation, setOccupation] = useState(answers.occupation || '');
   const [householdStatus, setHouseholdStatus] = useState(answers.householdStatus || '');
   const [profileImage, setProfileImage] = useState(answers.profileImage || '');
+  const profileImageUri = useProfileImageUri(profileImage);
+  const [loading, setLoading] = useState(false);
+  const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [failedPreviewUri, setFailedPreviewUri] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
 
-  const isDirty = 
+  const isDirty =
     preferredName !== (answers.preferredName || '') ||
     country !== (answers.country || '') ||
     city !== (answers.city || '') ||
-    currency !== (answers.currency || '') ||
     ageRange !== (answers.ageRange || '') ||
     employmentStatus !== (answers.employmentStatus || '') ||
     occupation !== (answers.occupation || '') ||
     householdStatus !== (answers.householdStatus || '') ||
     profileImage !== (answers.profileImage || '');
 
-  const [loading, setLoading] = useState(false);
+  const initials = (preferredName.trim() || user?.email || 'PA')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const showMessage = useCallback((title: string, message: string, onPress?: () => void) => {
+    setDialog({
+      title,
+      message,
+      actions: [{ label: t('profile.edit.ok'), onPress }],
+    });
+  }, [t]);
 
   const handleBack = () => {
-    if (isDirty) {
-      Alert.alert(
-        t('common.discardConfirmTitle', 'Discard Changes?'),
-        t('common.discardConfirmMsg', 'You have unsaved profile changes. Are you sure you want to discard them?'),
-        [
-          { text: t('common.keepEditing', 'Keep Editing'), style: 'cancel' },
-          { text: t('common.discard', 'Discard'), style: 'destructive', onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') },
-        ]
-      );
-    } else {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(tabs)/profile');
+    const leave = () => router.canGoBack()
+      ? router.back()
+      : router.replace('/(tabs)/profile');
+
+    if (!isDirty) {
+      leave();
+      return;
+    }
+
+    setDialog({
+      title: t('profile.edit.discardTitle'),
+      message: t('profile.edit.discardMessage'),
+      actions: [
+        { label: t('profile.edit.keepEditing') },
+        { label: t('profile.edit.discard'), destructive: true, onPress: leave },
+      ],
+    });
+  };
+
+  const handleChoosePhoto = async () => {
+    if (pickingPhoto) return;
+    setPickingPhoto(true);
+
+    try {
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          showMessage(
+            t('profile.edit.photoPermissionTitle'),
+            t('profile.edit.photoPermissionMessage'),
+          );
+          return;
+        }
       }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      const dataUri = await prepareProfileImage(result.assets[0]);
+      if (!dataUri) {
+        showMessage(t('profile.edit.photoErrorTitle'), t('profile.edit.photoTooLarge'));
+        return;
+      }
+
+      setFailedPreviewUri(null);
+      setProfileImage(dataUri);
+    } catch {
+      showMessage(t('profile.edit.photoErrorTitle'), t('profile.edit.photoErrorMessage'));
+    } finally {
+      setPickingPhoto(false);
     }
   };
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let active = true;
+
+    ImagePicker.getPendingResultAsync().then(async (result) => {
+      if (!active || !result || !('assets' in result) || result.canceled || !result.assets[0]) return;
+      setPickingPhoto(true);
+      try {
+        const dataUri = await prepareProfileImage(result.assets[0]);
+        if (!active) return;
+        if (!dataUri) {
+          showMessage(t('profile.edit.photoErrorTitle'), t('profile.edit.photoTooLarge'));
+          return;
+        }
+        setFailedPreviewUri(null);
+        setProfileImage(dataUri);
+      } catch {
+        if (active) showMessage(t('profile.edit.photoErrorTitle'), t('profile.edit.photoErrorMessage'));
+      } finally {
+        if (active) setPickingPhoto(false);
+      }
+    }).catch(() => {
+      if (active) setPickingPhoto(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [showMessage, t]);
+
   const handleSave = async () => {
     if (!preferredName.trim()) {
-      Alert.alert(t('common.error', 'Error'), t('common.nameRequired', 'Preferred name is required.'));
+      showMessage(t('profile.edit.error'), t('profile.edit.nameRequired'));
       return;
     }
 
     setLoading(true);
     try {
+      let storedProfileImage = profileImage;
+      if (user && isInlineProfileImage(profileImage)) {
+        storedProfileImage = await uploadProfileImage(user.id, profileImage);
+      } else if (user && !profileImage && answers.profileImage && !isInlineProfileImage(answers.profileImage)) {
+        await removeProfileImage(answers.profileImage);
+      }
+
       const updatedAnswers = {
         ...answers,
         preferredName: preferredName.trim(),
         country: country.trim(),
         city: city.trim(),
-        currency: currency.trim(),
         ageRange: ageRange.trim(),
         employmentStatus: employmentStatus.trim(),
         occupation: occupation.trim(),
         householdStatus: householdStatus.trim(),
-        profileImage: profileImage.trim(),
+        profileImage: storedProfileImage,
       };
 
       if (user) {
         await syncOnboardingAnswers(updatedAnswers, true);
-        const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
+        const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL
+          || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
         if (!isMockSupabase) {
-          await supabase.from('profiles').upsert(
+          const { error } = await supabase.from('profiles').upsert(
             {
               user_id: user.id,
               preferred_name: preferredName.trim(),
+              profile_image: storedProfileImage || null,
+              country: country.trim() || null,
+              city: city.trim() || null,
+              currency: answers.currency || 'MAD',
+              age_range: ageRange.trim() || null,
+              employment_status: employmentStatus || null,
+              occupation: occupation.trim() || null,
+              household_status: householdStatus.trim() || null,
               updated_at: new Date().toISOString(),
             },
-            { onConflict: 'user_id' }
+            { onConflict: 'user_id' },
           );
+          if (error) throw error;
         }
       }
 
       setAnswers(updatedAnswers);
-      
-      Alert.alert(t('common.success', 'Success'), t('common.saved', 'Profile updated successfully!'), [
-        { text: t('common.ok', 'OK'), onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') }
-      ]);
-    } catch (err: any) {
-      Alert.alert(t('common.error', 'Error'), err.message || t('common.saveFailed', 'Failed to save changes.'));
+      setProfileImage(storedProfileImage);
+      showMessage(
+        t('profile.edit.success'),
+        t('profile.edit.saveSuccess'),
+        () => router.canGoBack()
+            ? router.back()
+            : router.replace('/(tabs)/profile'),
+      );
+    } catch (error) {
+      console.warn('Profile save failed', error);
+      showMessage(t('profile.edit.error'), t('profile.edit.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -109,138 +283,181 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={handleBack}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.edit.back')}
+        >
+          <Ionicons
+            name={I18nManager.isRTL ? 'arrow-forward' : 'arrow-back'}
+            size={24}
+            color={COLORS.primary}
+            accessible={false}
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('settings.edit.title')}</Text>
-        <View style={{ width: 40 }} />
+        <AppText variant="bodySemiBold" style={styles.headerTitle} role="heading" aria-level={1}>
+          {t('profile.edit.title')}
+        </AppText>
+        <View style={styles.headerBalance} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Form Fields */}
-        <Card style={styles.formCard}>
-          <Text style={styles.sectionTitle}>{t('settings.edit.personal')}</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.preferredName')}</Text>
-            <TextInput
-              style={styles.input}
-              value={preferredName}
-              onChangeText={setPreferredName}
-              placeholder="e.g., Kasper"
-              placeholderTextColor={COLORS.textSecondary}
-            />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        role="main"
+      >
+        <Card style={styles.photoCard} shadow="none">
+          <TouchableOpacity
+            style={styles.avatarButton}
+            onPress={handleChoosePhoto}
+            disabled={pickingPhoto}
+            accessibilityRole="button"
+            accessibilityLabel={profileImage ? t('profile.edit.changePhoto') : t('profile.edit.choosePhoto')}
+            accessibilityHint={t('profile.avatar.changeHint')}
+            accessibilityState={{ busy: pickingPhoto, disabled: pickingPhoto }}
+          >
+            {profileImageUri && failedPreviewUri !== profileImageUri ? (
+              <Image
+                source={{ uri: profileImageUri }}
+                style={styles.avatarImage}
+                onError={() => setFailedPreviewUri(profileImageUri)}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <AppText variant="headlineMd" style={styles.avatarInitials}>{initials}</AppText>
+              </View>
+            )}
+            <View style={styles.photoBadge}>
+              <Ionicons name="camera-outline" size={18} color={COLORS.onAction} accessible={false} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.photoCopy}>
+            <AppText variant="bodySemiBold" style={styles.photoTitle}>
+              {profileImage ? t('profile.edit.changePhoto') : t('profile.edit.choosePhoto')}
+            </AppText>
+            <AppText variant="supporting" style={styles.photoHint}>
+              {t('profile.edit.photoHint')}
+            </AppText>
           </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.profileImage')}</Text>
-            <TextInput
-              style={styles.input}
-              value={profileImage}
-              onChangeText={setProfileImage}
-              placeholder="e.g., https://example.com/avatar.png"
-              placeholderTextColor={COLORS.textSecondary}
-              autoCapitalize="none"
-              autoCorrect={false}
+          <View style={styles.photoActions}>
+            <Button
+              title={profileImage ? t('profile.edit.changePhoto') : t('profile.edit.choosePhoto')}
+              onPress={handleChoosePhoto}
+              variant="secondary"
+              loading={pickingPhoto}
+              style={styles.photoAction}
             />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.ageRange')}</Text>
-            <TextInput
-              style={styles.input}
-              value={ageRange}
-              onChangeText={setAgeRange}
-              placeholder="e.g., 25-34"
-              placeholderTextColor={COLORS.textSecondary}
-            />
-          </View>
-        </Card>
-
-        <Card style={styles.formCard}>
-          <Text style={styles.sectionTitle}>{t('settings.edit.employment')}</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.employmentStatus')}</Text>
-            <TextInput
-              style={styles.input}
-              value={employmentStatus}
-              onChangeText={setEmploymentStatus}
-              placeholder="e.g., employed, self-employed, student"
-              placeholderTextColor={COLORS.textSecondary}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.occupation')}</Text>
-            <TextInput
-              style={styles.input}
-              value={occupation}
-              onChangeText={setOccupation}
-              placeholder="e.g., Software Engineer"
-              placeholderTextColor={COLORS.textSecondary}
-            />
+            {profileImage ? (
+              <Button
+                title={t('profile.edit.removePhoto')}
+                onPress={() => setProfileImage('')}
+                variant="text"
+                style={styles.photoAction}
+              />
+            ) : null}
           </View>
         </Card>
 
-        <Card style={styles.formCard}>
-          <Text style={styles.sectionTitle}>{t('settings.edit.geography')}</Text>
+        <Card style={styles.formCard} shadow="none">
+          <AppText variant="bodySemiBold" style={styles.sectionTitle} role="heading" aria-level={2}>
+            {t('profile.edit.personal')}
+          </AppText>
+          <Input
+            label={t('profile.edit.preferredName')}
+            value={preferredName}
+            onChangeText={setPreferredName}
+            placeholder={t('profile.edit.preferredNamePlaceholder')}
+            autoCapitalize="words"
+          />
+          <Input
+            label={t('profile.edit.ageRange')}
+            value={ageRange}
+            onChangeText={setAgeRange}
+            placeholder={t('profile.edit.ageRangePlaceholder')}
+          />
+        </Card>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.country')}</Text>
-            <TextInput
-              style={styles.input}
-              value={country}
-              onChangeText={setCountry}
-              placeholder="e.g., Morocco"
-              placeholderTextColor={COLORS.textSecondary}
-            />
+        <Card style={styles.formCard} shadow="none">
+          <AppText variant="bodySemiBold" style={styles.sectionTitle} role="heading" aria-level={2}>
+            {t('profile.edit.employment')}
+          </AppText>
+          <AppText variant="inputLabel" style={styles.employmentLabel}>
+            {t('profile.edit.employmentStatus')}
+          </AppText>
+          <View style={styles.employmentOptions} accessibilityRole="radiogroup">
+            {EMPLOYMENT_OPTIONS.map((option) => {
+              const selected = employmentStatus === option;
+              return (
+                <Pressable
+                  key={option}
+                  style={[styles.employmentOption, selected && styles.employmentOptionSelected]}
+                  onPress={() => setEmploymentStatus(option)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                >
+                  <AppText variant="bodyMedium" style={styles.employmentOptionText}>
+                    {t(`onboarding.options.${option}`)}
+                  </AppText>
+                  <Ionicons
+                    name={selected ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={selected ? COLORS.emerald : COLORS.textSecondary}
+                    accessible={false}
+                  />
+                </Pressable>
+              );
+            })}
           </View>
+          <Input
+            label={t('profile.edit.occupation')}
+            value={occupation}
+            onChangeText={setOccupation}
+            placeholder={t('profile.edit.occupationPlaceholder')}
+          />
+        </Card>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.city')}</Text>
-            <TextInput
-              style={styles.input}
-              value={city}
-              onChangeText={setCity}
-              placeholder="e.g., Casablanca"
-              placeholderTextColor={COLORS.textSecondary}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.currency')}</Text>
-            <TextInput
-              style={styles.input}
-              value={currency}
-              onChangeText={setCurrency}
-              placeholder="e.g., MAD"
-              placeholderTextColor={COLORS.textSecondary}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('settings.edit.household')}</Text>
-            <TextInput
-              style={styles.input}
-              value={householdStatus}
-              onChangeText={setHouseholdStatus}
-              placeholder="e.g., single, married with 2 kids"
-              placeholderTextColor={COLORS.textSecondary}
-            />
-          </View>
+        <Card style={styles.formCard} shadow="none">
+          <AppText variant="bodySemiBold" style={styles.sectionTitle} role="heading" aria-level={2}>
+            {t('profile.edit.geography')}
+          </AppText>
+          <Input
+            label={t('profile.edit.country')}
+            value={country}
+            onChangeText={setCountry}
+            placeholder={t('profile.edit.countryPlaceholder')}
+          />
+          <Input
+            label={t('profile.edit.city')}
+            value={city}
+            onChangeText={setCity}
+            placeholder={t('profile.edit.cityPlaceholder')}
+          />
+          <Input
+            label={t('profile.edit.household')}
+            value={householdStatus}
+            onChangeText={setHouseholdStatus}
+            placeholder={t('profile.edit.householdPlaceholder')}
+          />
         </Card>
 
         <Button
-          title={loading ? t('common.saving', 'Saving...') : t('settings.edit.save')}
+          title={loading ? t('profile.edit.saving') : t('profile.edit.save')}
           onPress={handleSave}
-          disabled={loading}
+          loading={loading}
+          disabled={loading || pickingPhoto}
           style={styles.saveBtn}
         />
-        <View style={{ height: 50 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
+      <AppDialog
+        visible={dialog !== null}
+        title={dialog?.title || ''}
+        message={dialog?.message || ''}
+        actions={dialog?.actions || []}
+        onRequestClose={() => setDialog(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -250,62 +467,139 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.surface,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    height: 56,
     backgroundColor: COLORS.surfaceContainerLowest,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.outlineVariant,
   },
   backBtn: {
-    padding: SPACING.xs,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    ...TYPOGRAPHY.bodyMd,
     color: COLORS.primary,
-    fontWeight: '700',
+  },
+  headerBalance: {
+    width: 44,
   },
   scrollContent: {
-    padding: SPACING.md,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    padding: SPACING.containerPadding,
     gap: SPACING.md,
   },
+  photoCard: {
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+  },
+  avatarButton: {
+    width: 96,
+    height: 96,
+  },
+  avatarImage: {
+    width: 96,
+    height: 96,
+    borderRadius: RADIUS.round,
+  },
+  avatarPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: RADIUS.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primaryContainer,
+  },
+  avatarInitials: {
+    color: COLORS.onPrimaryContainer,
+  },
+  photoBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.action,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceContainerLowest,
+  },
+  photoCopy: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  photoTitle: {
+    color: COLORS.textPrimary,
+  },
+  photoHint: {
+    maxWidth: 420,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  photoActions: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  photoAction: {
+    minWidth: 160,
+    flexGrow: 1,
+  },
   formCard: {
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surfaceContainerLowest,
+    gap: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
   },
   sectionTitle: {
-    ...TYPOGRAPHY.bodyMedium,
     color: COLORS.primary,
-    fontWeight: '700',
+    marginBottom: SPACING.xs,
+  },
+  employmentLabel: {
+    color: COLORS.textPrimary,
+  },
+  employmentOptions: {
+    gap: SPACING.xs,
     marginBottom: SPACING.md,
   },
-  field: {
-    marginBottom: SPACING.md,
-  },
-  label: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  input: {
-    height: 48,
-    borderRadius: RADIUS.md,
+  employmentOption: {
+    minHeight: 48,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
-    paddingHorizontal: SPACING.md,
-    ...TYPOGRAPHY.bodyMedium,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  employmentOptionSelected: {
+    borderColor: COLORS.emerald,
+    backgroundColor: COLORS.mintBackground,
+  },
+  employmentOptionText: {
     color: COLORS.textPrimary,
-    backgroundColor: COLORS.surface,
   },
   saveBtn: {
-    marginTop: SPACING.sm,
     width: '100%',
+  },
+  bottomSpacer: {
+    height: 48,
   },
 });

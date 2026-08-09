@@ -1,4 +1,4 @@
-# App Store Support URL Info: FinPath
+# App Store Support URL Info: Pocket Ahead
 
 Review notes for the Support URL metadata field.
 
@@ -11,5 +11,5 @@ The Support URL submitted to Apple App Store must match:
 ### Content on Support Page:
 * Searchable Frequently Asked Questions (FAQ) list.
 * Submit ticket request or contact forms.
-* Support contact email: `[SUPPORT EMAIL]`.
-* Response expectation detail: `[RESPONSE TIME EXPECTATION]`.
+* Support contact email: use the monitored address configured for the production release and App Store listing.
+* Response expectations must match the publisher’s actual support capacity.

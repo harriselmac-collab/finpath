@@ -4,40 +4,32 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
-import { useColorScheme, I18nManager } from 'react-native';
+import { useColorScheme, I18nManager, AppState, Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from '../services/localization/i18n';
+import { isRtlLanguage, normalizeLanguageCode } from '../services/localization/languages';
 import { COLORS } from '../constants/theme';
+import { initializeThemePreference, syncSystemTheme } from '../services/theme';
 import { useSessionStore } from '../store/sessionStore';
+import { isSupabaseConfigured, supabase } from '../services/supabase/supabaseClient';
 
 // Prevent splash screen from auto-hiding until assets are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const FONT_FAMILIES = {
-  PlusJakartaSans_400Regular: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_qU7NSg.ttf',
-  PlusJakartaSans_500Medium: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_m07NSg.ttf',
-  PlusJakartaSans_600SemiBold: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_d0nNSg.ttf',
-  PlusJakartaSans_700Bold: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_TknNSg.ttf',
-  PlusJakartaSans_800ExtraBold: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_KUnNSg.ttf',
+  SpaceGrotesk_400Regular: require('../../assets/fonts/SpaceGrotesk-Variable.ttf'),
+  SpaceGrotesk_500Medium: require('../../assets/fonts/SpaceGrotesk-Variable.ttf'),
+  SpaceGrotesk_600SemiBold: require('../../assets/fonts/SpaceGrotesk-Variable.ttf'),
+  SpaceGrotesk_700Bold: require('../../assets/fonts/SpaceGrotesk-Variable.ttf'),
   
-  Inter_400Regular: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_qU7NSg.ttf',
-  Inter_600SemiBold: 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIbaomQNQcsA88c7O9yZ4KMCoOg4IA6-91aHEjcWuA_d0nNSg.ttf',
-  
-  Cairo_400Regular: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ62xQjA.ttf',
-  Cairo_600SemiBold: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ3O2QjA.ttf',
-  Cairo_700Bold: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ0q2QjA.ttf',
-  
-  Changa_300Light: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ_OxQjA.ttf',
-  Changa_400Regular: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ62xQjA.ttf',
-  Changa_500Medium: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ5-xQjA.ttf',
-  Changa_600SemiBold: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ3O2QjA.ttf',
-  Changa_700Bold: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZ0q2QjA.ttf',
-  Changa_800ExtraBold: 'https://fonts.gstatic.com/s/changa/v29/2-c79JNi2YuVOUcOarRPgnNGooxCZy22QjA.ttf',
+  Cairo: require('../../assets/fonts/Cairo-Variable.ttf'),
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const initializeAuth = useSessionStore((state) => state.initializeAuth);
+  const authLoading = useSessionStore((state) => state.loading);
+  const userId = useSessionStore((state) => state.user?.id);
 
   useEffect(() => {
     const unsubscribe = initializeAuth();
@@ -49,19 +41,62 @@ export default function RootLayout() {
   }, [initializeAuth]);
 
   useEffect(() => {
+    if (Platform.OS === 'web' || !isSupabaseConfigured) return;
+
+    const updateRefreshState = (state: string) => {
+      if (state === 'active') supabase.auth.startAutoRefresh();
+      else supabase.auth.stopAutoRefresh();
+    };
+
+    updateRefreshState(AppState.currentState);
+    const subscription = AppState.addEventListener('change', updateRefreshState);
+    return () => {
+      subscription.remove();
+      supabase.auth.stopAutoRefresh();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const sync = () => { void import('../services/sync/financialSync').then(({ synchronizeFinancialData }) => synchronizeFinancialData()); };
+    sync();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+    return () => subscription.remove();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void AsyncStorage.getItem('pocket-ahead-welcome-back').then(async (shouldWelcomeBack) => {
+      if (shouldWelcomeBack !== 'true') return;
+      await AsyncStorage.removeItem('pocket-ahead-welcome-back');
+      Alert.alert(i18n.t('dashboard.welcomeBack', 'Welcome back'));
+    });
+  }, [userId]);
+
+  useEffect(() => {
+    syncSystemTheme(colorScheme);
+  }, [colorScheme]);
+
+  useEffect(() => {
     const loadAssets = async () => {
       try {
+        await initializeThemePreference();
+
         // 1. Load stored language preference first to determine font requirements
         const storedLang = await AsyncStorage.getItem('user-language');
         if (storedLang) {
-          await i18n.changeLanguage(storedLang);
-          const isRTL = storedLang === 'ar';
+          const language = normalizeLanguageCode(storedLang);
+          await i18n.changeLanguage(language);
+          const isRTL = isRtlLanguage(language);
           if (I18nManager.isRTL !== isRTL) {
             I18nManager.allowRTL(isRTL);
             I18nManager.forceRTL(isRTL);
           }
           if (typeof document !== 'undefined') {
-            document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+            document.documentElement.setAttribute('lang', language);
+            document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
           }
         }
 
@@ -77,10 +112,13 @@ export default function RootLayout() {
     loadAssets();
   }, []);
 
+  if (authLoading) return null;
+
   return (
     <SafeAreaProvider>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack
+        key={colorScheme ?? 'light'}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: COLORS.surface },
@@ -88,16 +126,17 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="auth/index" />
+        <Stack.Screen name="auth/update-password" />
         <Stack.Screen name="onboarding/welcome" />
         <Stack.Screen name="onboarding/quiz" />
         <Stack.Screen name="onboarding/review" />
         <Stack.Screen name="onboarding/essential-expenses" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="transaction-form" />
         <Stack.Screen name="profile/edit" />
         <Stack.Screen name="profile/notifications" />
         <Stack.Screen name="profile/security" />
         <Stack.Screen name="profile/privacy" />
-        <Stack.Screen name="profile/ai-consent" />
         <Stack.Screen name="profile/export-data" />
         <Stack.Screen name="profile/delete-account" />
         <Stack.Screen name="profile/help" />
@@ -105,7 +144,6 @@ export default function RootLayout() {
         <Stack.Screen name="profile/legal/privacy" />
         <Stack.Screen name="profile/legal/terms" />
         <Stack.Screen name="profile/legal/financial-disclaimer" />
-        <Stack.Screen name="profile/legal/ai-disclaimer" />
         <Stack.Screen name="profile/legal/licenses" />
       </Stack>
     </SafeAreaProvider>

@@ -14,6 +14,9 @@ export interface GoalCalculationsOutput {
   remainingAmount: number;
   monthsRemaining: number;
   requiredMonthlyContribution: number;
+  requiredWeeklyContribution: number;
+  projectedCompletionDate: string | null;
+  status: 'on_track' | 'adjustment_needed' | 'unrealistic' | 'completed' | 'paused';
   isRealistic: boolean;
   explanation: string | null;
   suggestions: {
@@ -44,7 +47,8 @@ export const calculateMonthsRemaining = (targetDateStr: string): number => {
  */
 export const analyzeGoalFeasibility = (
   goal: GoalInput,
-  availableMonthlyBalance: number
+  availableMonthlyBalance: number,
+  goalStatus: 'active' | 'paused' | 'completed' | 'archived' = 'active',
 ): GoalCalculationsOutput => {
   const { targetAmount, alreadySaved, targetDate } = goal;
 
@@ -57,6 +61,17 @@ export const analyzeGoalFeasibility = (
 
   // Feasibility Check
   const isRealistic = requiredMonthlyContribution <= availableMonthlyBalance;
+  const requiredWeeklyContribution = safeDivide(requiredMonthlyContribution * 12, 52);
+  const monthsAtCapacity = availableMonthlyBalance > 0 ? Math.ceil(remainingAmount / availableMonthlyBalance) : 0;
+  const projectedDate = monthsAtCapacity > 0 ? new Date() : null;
+  if (projectedDate) projectedDate.setMonth(projectedDate.getMonth() + monthsAtCapacity);
+  const status = goalStatus === 'completed' || remainingAmount <= 0
+    ? 'completed'
+    : goalStatus === 'paused'
+      ? 'paused'
+      : !isRealistic
+        ? availableMonthlyBalance > 0 ? 'adjustment_needed' : 'unrealistic'
+        : 'on_track';
 
   let explanation: string | null = null;
   const suggestions: GoalCalculationsOutput['suggestions'] = [];
@@ -103,6 +118,9 @@ export const analyzeGoalFeasibility = (
     remainingAmount,
     monthsRemaining,
     requiredMonthlyContribution,
+    requiredWeeklyContribution,
+    projectedCompletionDate: projectedDate?.toISOString().slice(0, 10) || null,
+    status,
     isRealistic,
     explanation,
     suggestions,

@@ -31,7 +31,7 @@ const ConfettiPiece: React.FC<ConfettiPieceProps> = ({ piece, windowHeight }) =>
       Animated.parallel([
         Animated.timing(animY, {
           toValue: windowHeight + 50,
-          duration: Math.random() * 2000 + 2500,
+          duration: Math.random() * 500 + 1400,
           useNativeDriver: true,
         }),
         Animated.loop(
@@ -96,9 +96,9 @@ export const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({ active, 
   useEffect(() => {
     if (!active) return;
 
-    const items: PieceConfig[] = Array.from({ length: 60 }).map((_, idx) => ({
+    const items: PieceConfig[] = Array.from({ length: 36 }).map((_, idx) => ({
       id: idx,
-      delay: Math.random() * 800,
+      delay: Math.random() * 300,
       startX: Math.random() * windowWidth,
       size: Math.random() * 8 + 6,
       color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
@@ -113,7 +113,7 @@ export const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({ active, 
     const timer = setTimeout(() => {
       setPieces([]);
       onComplete();
-    }, 5000);
+    }, 2200);
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps

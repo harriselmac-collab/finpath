@@ -1,58 +1,138 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
+import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { supabase } from '../../services/supabase/supabaseClient';
+import {
+  isAuthSimulationEnabled,
+  isSupabaseConfigured,
+  supabase,
+} from '../../services/supabase/supabaseClient';
 import { useSessionStore } from '../../store/sessionStore';
 import { createMockSession, MOCK_SESSION_DELAY } from '../../mocks/supabaseMock';
+import { captureLocalFinancialData, hasLocalFinancialData, migrateLocalDataToAccount } from '../../services/sync/guestMigration';
+import { parseAuthCallback } from '../../services/auth/recovery';
+
+const userFacingAuthError = (error: any, t: (key: string, options?: any) => string) => {
+  switch (error?.code) {
+    case 'invalid_credentials':
+      return t('auth.invalidCredentials', { defaultValue: 'The email or password is incorrect.' });
+    case 'email_not_confirmed':
+      return t('auth.emailNotConfirmed', { defaultValue: 'Confirm your email address before signing in.' });
+    case 'user_already_exists':
+    case 'email_exists':
+      return t('auth.accountExists', { defaultValue: 'An account already exists for this email address.' });
+    case 'weak_password':
+      return t('auth.weakPassword', { defaultValue: 'Choose a stronger password with at least 8 characters.' });
+    case 'over_email_send_rate_limit':
+    case 'over_request_rate_limit':
+      return t('auth.rateLimited', { defaultValue: 'Too many attempts. Wait a moment and try again.' });
+    default:
+      return t('auth.signInFailed');
+  }
+};
 
 export default function AuthScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const { t } = useTranslation();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(mode === 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const setSession = useSessionStore((state) => state.setSession);
+  const callbackUrl = Linking.useLinkingURL();
+  const handledCallbackUrl = useRef<string | null>(null);
+
+  const finishAuthentication = useCallback((session: Parameters<typeof setSession>[0], localSnapshot: ReturnType<typeof captureLocalFinancialData>) => {
+    if (!session) return;
+    setSession(session);
+    if (!hasLocalFinancialData(localSnapshot)) {
+      router.replace('/');
+      return;
+    }
+    Alert.alert(
+      t('auth.localMigrationTitle', 'Use your local Pocket Ahead data?'),
+      t('auth.localMigrationMessage', 'Your transactions, bills, goals, preferences, and plan are still stored on this device. Choose what to do before synchronization.'),
+      [
+        {
+          text: t('auth.localMigrationKeep', 'Keep local data and sync it'),
+          onPress: async () => {
+            const migrated = await migrateLocalDataToAccount(localSnapshot, session.user.id);
+            if (!migrated) Alert.alert(t('auth.migrationFailedTitle', 'Sync not completed'), t('auth.migrationFailedMessage', 'Your local data is still safe on this device. Try synchronization again later.'));
+            router.replace('/');
+          },
+        },
+        { text: t('auth.localMigrationEmpty', 'Start with an empty account'), onPress: () => router.replace('/') },
+        { text: t('common.cancel'), style: 'cancel', onPress: async () => { await useSessionStore.getState().signOut(); router.replace('/'); } },
+      ],
+    );
+  }, [router, setSession, t]);
 
   React.useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '123456789-mock-web-client-id.apps.googleusercontent.com',
-    });
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    if (webClientId) GoogleSignin.configure({ webClientId });
   }, []);
 
+  React.useEffect(() => {
+    if (!callbackUrl || handledCallbackUrl.current === callbackUrl || !isSupabaseConfigured) return;
+    const { accessToken, refreshToken, type, errorCode } = parseAuthCallback(callbackUrl);
+    if (type === 'recovery') return;
+    if (!errorCode && (!accessToken || !refreshToken)) return;
+    handledCallbackUrl.current = callbackUrl;
+
+    const acceptConfirmedSession = async () => {
+      if (errorCode || !accessToken || !refreshToken) {
+        setError(t('auth.confirmationFailed', 'The confirmation link is invalid or has expired. Request a new email and try again.'));
+        return;
+      }
+      const localSnapshot = captureLocalFinancialData();
+      setLoading(true);
+      setError('');
+      const { data, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      setLoading(false);
+      if (sessionError || !data.session) {
+        setError(t('auth.confirmationFailed', 'The confirmation link is invalid or has expired. Request a new email and try again.'));
+        return;
+      }
+      finishAuthentication(data.session, localSnapshot);
+    };
+
+    void acceptConfirmedSession();
+  }, [callbackUrl, finishAuthentication, t]);
+
+  const startSimulation = async () => {
+    if (!isAuthSimulationEnabled) return;
+    setLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
+    setSession(createMockSession(email || 'development@pocketahead.local') as any);
+    setLoading(false);
+    Alert.alert(t('auth.simulationTitle'), t('auth.simulationNotice'), [
+      { text: t('common.continue'), onPress: () => router.replace('/onboarding/welcome') },
+    ]);
+  };
+
   const handleGoogleAuth = async () => {
+    const localSnapshot = captureLocalFinancialData();
     setError('');
     setLoading(true);
 
-    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
-    const isMockGoogle = !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID === '123456789-mock-web-client-id.apps.googleusercontent.com';
-
-    if (isMockSupabase || isMockGoogle) {
-      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
-      const mockSession = createMockSession('google-guest@finpath.com', 'mock-google-user-id', 'Google Guest');
-      setSession(mockSession as any);
-
-      Alert.alert(
-        'Google Auth (Simulation Mode)',
-        `Logged in successfully as Google guest: google-guest@finpath.com\n\nLive Google client credentials are unconfigured.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/onboarding/welcome'),
-          },
-        ]
-      );
+    if (!isSupabaseConfigured || !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) {
+      setError(t('auth.serviceUnavailable'));
       setLoading(false);
       return;
     }
@@ -72,63 +152,43 @@ export default function AuthScreen() {
         }
 
         if (data.session) {
-          setSession(data.session);
-          router.replace('/');
+          finishAuthentication(data.session, localSnapshot);
         }
       } else {
-        throw new Error('No Google ID Token found.');
+        throw new Error(t('auth.googleTokenMissing'));
       }
     } catch (err: any) {
-      console.warn('Google Sign-In error, falling back to Simulation Mode:', err);
-      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
-      const mockSession = createMockSession('google-guest@finpath.com', 'mock-google-user-id', 'Google Guest');
-      setSession(mockSession as any);
-
-      Alert.alert(
-        'Google Auth (Simulation Mode)',
-        `Encountered Google Sign-In exception: ${err?.message || 'Developer Error'}.\n\nLogged in via Simulation Mode as Google Guest.`,
-        [
-          {
-            text: 'Proceed',
-            onPress: () => router.replace('/onboarding/welcome'),
-          },
-        ]
-      );
+      setError(userFacingAuthError(err, t));
     } finally {
       setLoading(false);
     }
   };
 
   const handleAuth = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields');
+    const localSnapshot = captureLocalFinancialData();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
+      setError(t('auth.requiredFields'));
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError(t('auth.invalidEmail', 'Enter a valid email address.'));
+      return;
+    }
+    if (isSignUp && password.length < 8) {
+      setError(t('auth.passwordTooShort', 'Use at least 8 characters.'));
       return;
     }
     if (isSignUp && password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.passwordMismatch'));
       return;
     }
 
     setError('');
     setLoading(true);
 
-    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
-
-    if (isMockSupabase) {
-      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
-      const mockSession = createMockSession(email, 'mock-user-id', email.split('@')[0]);
-      setSession(mockSession as any);
-
-      Alert.alert(
-        'Supabase Auth (Simulation Mode)',
-        `Logged in successfully as guest: ${email}\n\nLive backend is currently offline or unconfigured.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/onboarding/welcome'),
-          },
-        ]
-      );
+    if (!isSupabaseConfigured) {
+      setError(t('auth.serviceUnavailable'));
       setLoading(false);
       return;
     }
@@ -136,8 +196,9 @@ export default function AuthScreen() {
     try {
       if (isSignUp) {
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
+          options: { emailRedirectTo: Linking.createURL('auth') },
         });
 
         if (signUpError) {
@@ -145,18 +206,15 @@ export default function AuthScreen() {
         }
 
         if (data.session) {
-          setSession(data.session);
-          router.replace('/onboarding/welcome');
+          finishAuthentication(data.session, localSnapshot);
         } else {
-          Alert.alert(
-            'Verification Sent',
-            'Please check your email inbox to verify your account registration.',
-            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
-          );
+          Alert.alert(t('auth.verificationTitle'), t('auth.verificationMessage'), [
+            { text: t('common.continue'), onPress: () => setIsSignUp(false) },
+          ]);
         }
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
+          email: normalizedEmail,
           password,
         });
 
@@ -165,29 +223,40 @@ export default function AuthScreen() {
         }
 
         if (data.session) {
-          setSession(data.session);
-          router.replace('/');
+          finishAuthentication(data.session, localSnapshot);
         }
       }
     } catch (err: any) {
-      console.warn('Supabase Auth error, falling back to Simulation Mode:', err);
-      await new Promise((resolve) => setTimeout(resolve, MOCK_SESSION_DELAY));
-      const mockSession = createMockSession(email, 'mock-user-id', email.split('@')[0]);
-      setSession(mockSession as any);
-
-      Alert.alert(
-        'Supabase Auth (Simulation Mode)',
-        `Encountered API exception: ${err?.message || 'Unauthorized'}.\n\nLogged in via Simulation Mode as: ${email}.`,
-        [
-          {
-            text: 'Proceed',
-            onPress: () => router.replace('/onboarding/welcome'),
-          },
-        ]
-      );
+      setError(userFacingAuthError(err, t));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError(t('auth.enterEmailForReset', 'Enter your email address first.'));
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setError(t('auth.serviceUnavailable'));
+      return;
+    }
+    setError('');
+    setLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: Linking.createURL('auth/update-password'),
+    });
+    setLoading(false);
+    if (resetError) {
+      setError(t('auth.resetEmailFailed', 'The reset email could not be sent. Please wait a moment and try again.'));
+      return;
+    }
+    Alert.alert(
+      t('auth.resetEmailTitle', 'Check your email'),
+      t('auth.resetEmailMessage', 'If an account exists for that address, Pocket Ahead sent a secure password reset link.'),
+    );
   };
 
   return (
@@ -202,17 +271,19 @@ export default function AuthScreen() {
         >
           {/* Brand */}
           <Animated.View entering={FadeInDown.duration(500)} style={styles.brandSection}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoText}>FP</Text>
-            </View>
-            <Text style={styles.brandName}>FinPath</Text>
+            <Image
+              source={require('../../../assets/branding/app-logo.svg')}
+              style={styles.brandLogo}
+              contentFit="contain"
+              accessibilityLabel="Pocket Ahead"
+            />
           </Animated.View>
 
           {/* Header */}
           <Animated.View entering={FadeInDown.duration(500).delay(150)} style={styles.header}>
             <Text style={styles.title}>{t('auth.title')}</Text>
             <Text style={styles.subtitle}>
-              {isSignUp ? 'Create your secure account' : 'Sign in to access your dashboard'}
+              {isSignUp ? t('auth.signUpSubtitle') : t('auth.signInSubtitle')}
             </Text>
           </Animated.View>
 
@@ -224,7 +295,7 @@ export default function AuthScreen() {
               onChangeText={setEmail}
               placeholder="name@example.com"
               keyboardType="email-address"
-              error={error && !email ? 'Email is required' : undefined}
+              error={error && !email ? t('auth.emailRequired') : undefined}
             />
 
             <Input
@@ -233,8 +304,18 @@ export default function AuthScreen() {
               onChangeText={setPassword}
               placeholder="••••••••"
               secureTextEntry
-              error={error && !password ? 'Password is required' : undefined}
+              error={error && !password ? t('auth.passwordRequired') : undefined}
             />
+
+            {!isSignUp && (
+              <Button
+                title={t('auth.forgotPassword', 'Forgot password?')}
+                onPress={() => void handleForgotPassword()}
+                variant="text"
+                disabled={loading}
+                style={styles.forgotButton}
+              />
+            )}
 
             {isSignUp && (
               <Animated.View
@@ -247,12 +328,12 @@ export default function AuthScreen() {
                   onChangeText={setConfirmPassword}
                   placeholder="••••••••"
                   secureTextEntry
-                  error={error && password !== confirmPassword ? 'Passwords must match' : undefined}
+                  error={error && password !== confirmPassword ? t('auth.passwordMismatch') : undefined}
                 />
               </Animated.View>
             )}
 
-            {!!error && !email && !password && (
+            {!!error && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
@@ -294,13 +375,15 @@ export default function AuthScreen() {
               <View style={styles.line} />
             </View>
 
-            <Button
-              title={t('auth.mockLogin')}
-              onPress={() => router.replace('/onboarding/welcome')}
-              variant="secondary"
-              disabled={loading}
-              style={styles.mockButton}
-            />
+            {isAuthSimulationEnabled && (
+              <Button
+                title={t('auth.simulationButton')}
+                onPress={() => void startSimulation()}
+                variant="secondary"
+                disabled={loading}
+                style={styles.mockButton}
+              />
+            )}
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -325,26 +408,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.xl,
   },
-  logoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-    ...SHADOWS.md,
-  },
-  logoText: {
-    ...TYPOGRAPHY.h2,
-    color: COLORS.white,
-    fontWeight: '800',
-  },
-  brandName: {
-    ...TYPOGRAPHY.h1,
-    color: COLORS.primary,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  brandLogo: {
+    width: 82,
+    height: 94,
   },
   header: {
     alignItems: 'center',
@@ -366,7 +432,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   errorBox: {
-    backgroundColor: '#FFF2F2',
+    backgroundColor: COLORS.errorBackground,
     borderWidth: 1,
     borderColor: COLORS.error,
     borderRadius: RADIUS.md,
@@ -382,6 +448,11 @@ const styles = StyleSheet.create({
   authButton: {
     marginTop: SPACING.sm,
     height: 52,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
+    minHeight: 40,
+    marginTop: -SPACING.xs,
   },
   toggleButton: {
     alignSelf: 'center',
@@ -412,7 +483,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: SPACING.md,
     height: 48,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
     borderRadius: RADIUS.md,

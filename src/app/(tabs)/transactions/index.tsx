@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,80 +20,45 @@ import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useTransactionsStore } from '../../../store/transactionsStore';
 import { formatCurrency } from '../../../utils/currency';
 import { parseQuickEntry } from '../../../utils/nlpParser';
+import AppText from '../../../components/Text/AppText';
+import { useTabContentBottomInset } from '../../../hooks/useTabContentBottomInset';
 
 interface TransactionItem {
   id: string;
   name: string;
   amount: number;
-  type: 'income' | 'essential' | 'flexible' | 'debt' | 'savings';
+  type: 'income' | 'essential' | 'flexible' | 'debt' | 'savings' | 'refund' | 'transfer';
   category: string;
   date: string;
   timeGroup: string;
 }
 
 export default function TransactionsScreen() {
-  const { t } = useTranslation();
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
   const { answers } = useOnboardingStore();
   const currencySymbol = answers['currency'] || 'MAD';
+  const locale = i18n.resolvedLanguage || i18n.language;
+  const contentBottomInset = useTabContentBottomInset();
 
   // Transactions store
   const {
     transactions: storedTransactions,
     addTransaction,
     removeTransaction,
-    updateTransaction,
   } = useTransactionsStore();
 
   // Local state for UI (form values, filters, etc.)
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'essential' | 'flexible' | 'debt' | 'savings'>('flexible');
-  const [category, setCategory] = useState('Groceries');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'essential' | 'flexible' | 'debt' | 'savings'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'essential' | 'flexible' | 'debt' | 'savings' | 'refund' | 'transfer'>('all');
   const [quickInput, setQuickInput] = useState('');
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
-  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
-
-  const params = useLocalSearchParams<{ openForm?: string; actionType?: string }>();
-
-  // Open the add/edit transaction drawer when navigated with URL query params
-  React.useEffect(() => {
-    if (params.openForm === 'true') {
-      requestAnimationFrame(() => {
-        setShowForm(true);
-        if (params.actionType) {
-          setType(params.actionType as any);
-          if (params.actionType === 'income') {
-            setActiveTab('income');
-          } else {
-            setActiveTab('expense');
-          }
-        }
-      });
-    }
-  }, [params.openForm, params.actionType]);
-
-  // Populate form when editing a transaction
-  React.useEffect(() => {
-    if (editingTransactionId) {
-      requestAnimationFrame(() => {
-        const transaction = storedTransactions.find(t => t.id === editingTransactionId);
-        if (transaction) {
-          setName(transaction.name);
-          setAmount(transaction.amount.toString());
-          setType(transaction.type);
-          setCategory(transaction.category);
-        }
-      });
-    }
-  }, [editingTransactionId, storedTransactions]);
+  const chipScrollRef = useRef<ScrollView>(null);
 
   const handleQuickAdd = () => {
     const parsed = parseQuickEntry(quickInput);
     if (!parsed) {
-      Alert.alert('Error', 'Could not parse entry. Format: "coffee 45" or "rent 2500"');
+      Alert.alert(t('common.error', 'Error'), t('transactions.quickAddError', 'Use a name and amount, such as “coffee 45”.'));
       return;
     }
 
@@ -103,56 +68,21 @@ const newTx: Omit<TransactionItem, 'id'> = {
       amount: parsed.amount,
       type: parsed.type,
       category: parsed.category,
-      date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      timeGroup: now.toLocaleDateString('en-US', { month: 'short' }),
+      date: now.toLocaleDateString(locale, { month: 'short', day: 'numeric' }),
+      timeGroup: now.toLocaleDateString(locale, { month: 'long' }),
     };
 
     addTransaction(newTx);
     setQuickInput('');
   };
 
-  const handleAddTransaction = () => {
-    if (!name || !amount) {
-      Alert.alert('Error', 'Please fill in name and amount');
-      return;
-    }
-    const amt = Number(amount);
-    if (isNaN(amt) || amt <= 0) {
-      Alert.alert('Error', 'Please enter a valid positive amount');
-      return;
-    }
-
-    const now = new Date();
-    const txData = {
-      name,
-      amount: amt,
-      type,
-      category,
-      date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      timeGroup: now.toLocaleDateString('en-US', { month: 'short' }),
-    };
-
-    if (editingTransactionId) {
-      // Update existing transaction
-      updateTransaction(editingTransactionId, txData);
-      setEditingTransactionId(null);
-    } else {
-      // Add new transaction
-      addTransaction(txData);
-    }
-
-    setName('');
-    setAmount('');
-    setShowForm(false);
-  };
-
   const handleDeleteTransaction = (id: string) => {
     Alert.alert(
-      'Delete Transaction',
-      'Are you sure you want to delete this transaction?',
+      t('transactions.deleteTitle', 'Delete transaction?'),
+      t('transactions.deleteMessage', 'This transaction will be permanently removed.'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => removeTransaction(id) }
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+        { text: t('transactions.delete', 'Delete'), style: 'destructive', onPress: () => removeTransaction(id) }
       ]
     );
   };
@@ -160,7 +90,7 @@ const newTx: Omit<TransactionItem, 'id'> = {
   const filteredTransactions = storedTransactions.filter((tx) => {
     const matchesSearch = tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           tx.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = activeTab === 'expense' ? tx.type !== 'income' : tx.type === 'income';
+    const matchesTab = activeTab === 'expense' ? tx.type !== 'income' && tx.type !== 'refund' : tx.type === 'income' || tx.type === 'refund';
     const matchesFilter = selectedFilter === 'all' || tx.type === selectedFilter;
     return matchesSearch && matchesTab && matchesFilter;
   });
@@ -208,35 +138,38 @@ const newTx: Omit<TransactionItem, 'id'> = {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomInset }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>{t('transactions.title', 'Transactions')}</Text>
-            <Text style={styles.subtitle}>{t('transactions.subtitle', 'Track your monthly logs and cash flows')}</Text>
+            <AppText variant="headlineMd" style={styles.title}>{t('transactions.title', 'Transactions')}</AppText>
+            <AppText variant="labelSm" style={styles.subtitle}>{t('transactions.subtitle', 'Track your monthly logs and cash flows')}</AppText>
           </View>
-          <Button
-            title={showForm ? t('transactions.close', 'Close') : t('transactions.add', '+ Add')}
-            onPress={() => setShowForm(!showForm)}
-            variant="primary"
-            style={styles.headerAddBtn}
-          />
+          {storedTransactions.length > 0 && (
+            <Button
+              title={t('transactions.add', '+ Add')}
+              onPress={() => router.push('/transaction-form')}
+              variant="primary"
+              style={styles.headerAddBtn}
+            />
+          )}
         </View>
 
         {/* Search */}
-        <View style={styles.searchBar}>
-          <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={20} color={COLORS.textSecondary} style={styles.searchIcon} />
-            <Input
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('transactions.searchPlaceholder', 'Search transactions...')}
-              containerStyle={styles.searchInput}
-            />
-          </View>
-        </View>
+        <Input
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('transactions.searchPlaceholder', 'Search transactions...')}
+          containerStyle={styles.searchInput}
+          leadingIcon={<Ionicons name="search" size={20} color={COLORS.textSecondary} accessible={false} />}
+          trailingIcon={searchQuery ? (
+            <Pressable onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel={t('transactions.clearSearch', 'Clear search')}>
+              <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} accessible={false} />
+            </Pressable>
+          ) : null}
+        />
 
         {/* Quick Entry */}
         <View style={styles.quickEntryRow}>
@@ -259,40 +192,12 @@ const newTx: Omit<TransactionItem, 'id'> = {
           if (!parsed) return null;
           return (
             <View style={styles.previewBox}>
-              <Text style={styles.previewText}>
-                {t('transactions.readyToAdd', { defaultValue: 'Ready to add: {{name}} ({{category}}) - {{amount}}', name: parsed.name, category: parsed.category, amount: formatCurrency(parsed.amount, currencySymbol) })}
-              </Text>
+              <AppText variant="caption" style={styles.previewText}>
+                {t('transactions.readyToAdd', { defaultValue: 'Ready to add: {{name}} ({{category}}) - {{amount}}', name: parsed.name, category: parsed.category, amount: formatCurrency(parsed.amount, currencySymbol, locale) })}
+              </AppText>
             </View>
           );
         })()}
-
-        {/* Form */}
-        {showForm && (
-          <Card style={styles.formDrawer}>
-            <Text style={styles.formTitle}>{editingTransactionId ? t('transactions.editTitle', 'Edit Transaction') : t('transactions.addTitle', 'Add Transaction')}</Text>
-            <Input label={t('transactions.nameLabel', 'Name')} value={name} onChangeText={setName} placeholder="e.g. Electric Bill" />
-            <Input label={`${t('transactions.amountLabel', 'Amount')} (${currencySymbol})`} value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="numeric" />
-
-            <Text style={styles.label}>{t('transactions.typeLabel', 'Type')}</Text>
-            <View style={styles.typesRow}>
-              {['income', 'essential', 'flexible', 'debt', 'savings'].map((tType) => (
-                <TouchableOpacity
-                  key={tType}
-                  style={[styles.typeButton, type === tType && styles.typeButtonActive]}
-                  onPress={() => setType(tType as any)}
-                >
-                  <Text style={[styles.typeText, type === tType && styles.typeTextActive]}>
-                    {t(`transactions.filters.${tType}`, tType.toUpperCase())}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Input label={t('transactions.categoryLabel', 'Category')} value={category} onChangeText={setCategory} placeholder="e.g. Utilities, Salary" />
-
-            <Button title={t('transactions.saveBtn', 'Save Transaction')} onPress={handleAddTransaction} variant="primary" style={styles.saveBtn} />
-          </Card>
-        )}
 
         {/* Tab Switcher */}
         <View style={styles.tabSwitcher}>
@@ -300,28 +205,31 @@ const newTx: Omit<TransactionItem, 'id'> = {
             style={[styles.tabItem, activeTab === 'expense' && styles.tabItemActive]}
             onPress={() => setActiveTab('expense')}
           >
-            <Text style={[styles.tabText, activeTab === 'expense' && styles.tabTextActive]}>{t('transactions.tabExpenses', 'Expenses')}</Text>
+            <AppText variant="labelSm" style={[styles.tabText, activeTab === 'expense' && styles.tabTextActive]}>{t('transactions.tabExpenses', 'Expenses')}</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'income' && styles.tabItemActive]}
             onPress={() => setActiveTab('income')}
           >
-            <Text style={[styles.tabText, activeTab === 'income' && styles.tabTextActive]}>{t('transactions.tabIncome', 'Income')}</Text>
+            <AppText variant="labelSm" style={[styles.tabText, activeTab === 'income' && styles.tabTextActive]}>{t('transactions.tabIncome', 'Income')}</AppText>
           </TouchableOpacity>
         </View>
 
         {/* Filter Chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+        <ScrollView ref={chipScrollRef} horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipScrollContent}>
           <View style={styles.chipRow}>
-            {['all', 'income', 'essential', 'flexible', 'debt', 'savings'].map((tab) => (
+            {(['all', 'income', 'essential', 'flexible', 'debt', 'savings', 'refund', 'transfer'] as const).map((tab, index) => (
               <TouchableOpacity
                 key={tab}
                 style={[styles.chip, selectedFilter === tab && styles.chipActive]}
-                onPress={() => setSelectedFilter(tab as any)}
+                onPress={() => {
+                  setSelectedFilter(tab);
+                  chipScrollRef.current?.scrollTo({ x: index * 96, animated: true });
+                }}
               >
-                <Text style={[styles.chipText, selectedFilter === tab && styles.chipTextActive]}>
+                <AppText variant="labelSm" style={[styles.chipText, selectedFilter === tab && styles.chipTextActive]}>
                   {t(`transactions.filters.${tab}`, tab.charAt(0).toUpperCase() + tab.slice(1))}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -334,19 +242,19 @@ const newTx: Omit<TransactionItem, 'id'> = {
             title={t('transactions.noTransactions', 'No transactions found')}
             description={t('transactions.noTransactionsDesc', 'Try adjusting your search or add a new transaction to get started.')}
             actionLabel={t('transactions.addTitle', 'Add Transaction')}
-            onAction={() => setShowForm(true)}
+            onAction={() => router.push('/transaction-form')}
           />
         ) : (
           <View style={styles.listContainer}>
             {Object.entries(groupedTransactions).map(([group, txs]) => (
               <View key={group} style={styles.groupContainer}>
-                <Text style={styles.groupLabel}>{group}</Text>
+                <AppText variant="labelSm" style={styles.groupLabel}>{group}</AppText>
                 <Card style={styles.groupCard}>
                   {txs.map((tx, index) => (
                     <TouchableOpacity
                       key={tx.id}
                       activeOpacity={0.7}
-                      onPress={() => {}}
+                      onPress={() => router.push({ pathname: '/transaction-form', params: { transactionId: tx.id } })}
                     >
                       <View style={[
                         styles.txRow,
@@ -356,20 +264,20 @@ const newTx: Omit<TransactionItem, 'id'> = {
                           <Ionicons name={getCategoryIcon(tx.category) as any} size={22} color={getCategoryColor(tx.type)} />
                         </View>
                         <View style={styles.txMeta}>
-                          <Text style={styles.txName}>{tx.name}</Text>
+                          <AppText variant="bodySemiBold" style={styles.txName}>{tx.name}</AppText>
                           <View style={styles.txMetaRow}>
                             <View style={[styles.categoryChip, { backgroundColor: `${getCategoryColor(tx.type)}15` }]}>
-                              <Text style={[styles.categoryChipText, { color: getCategoryColor(tx.type) }]}>
+                              <AppText variant="labelSm" style={[styles.categoryChipText, { color: getCategoryColor(tx.type) }]}>
                                 {tx.category}
-                              </Text>
+                              </AppText>
                             </View>
-                            <Text style={styles.txDate}>{tx.date}</Text>
+                            <AppText variant="caption" style={styles.txDate}>{tx.date}</AppText>
                           </View>
                         </View>
                         <View style={styles.txAmountSec}>
-                          <Text style={[styles.txAmount, tx.type === 'income' ? styles.txAmountGreen : styles.txAmountDefault]}>
-                            {tx.type === 'income' ? '+' : '-'} {formatCurrency(tx.amount, currencySymbol)}
-                          </Text>
+                          <AppText variant="amountMd" style={[styles.txAmount, tx.type === 'income' ? styles.txAmountGreen : styles.txAmountDefault]}>
+                            {tx.type === 'income' || tx.type === 'refund' ? '+' : tx.type === 'transfer' ? '' : '-'} {formatCurrency(tx.amount, currencySymbol, locale)}
+                          </AppText>
                           <TouchableOpacity onPress={() => handleDeleteTransaction(tx.id)} style={styles.deleteBtn}>
                             <Ionicons name="trash-outline" size={16} color={COLORS.textSecondary} />
                           </TouchableOpacity>
@@ -415,22 +323,8 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: SPACING.md,
   },
-  searchBar: {
-    marginBottom: SPACING.xs,
-  },
-  searchInputContainer: {
-    position: 'relative',
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: 12,
-    top: '50%',
-    transform: [{ translateY: -50 }],
-    zIndex: 1,
-  },
   searchInput: {
     marginBottom: 0,
-    paddingLeft: SPACING.xl,
   },
   quickEntryRow: {
     flexDirection: 'row',
@@ -456,50 +350,6 @@ const styles = StyleSheet.create({
   previewText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textPrimary,
-  },
-  formDrawer: {
-    padding: SPACING.md,
-    gap: SPACING.sm,
-  },
-  formTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: SPACING.xs,
-  },
-  label: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  typesRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  typeButton: {
-    flex: 1,
-    height: 40,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  typeButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryContainer,
-  },
-  typeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  typeTextActive: {
-    color: COLORS.onPrimaryContainer,
-  },
-  saveBtn: {
-    marginTop: SPACING.sm,
   },
   tabSwitcher: {
     flexDirection: 'row',
@@ -529,11 +379,16 @@ const styles = StyleSheet.create({
   chipScroll: {
     marginBottom: SPACING.xs,
   },
+  chipScrollContent: {
+    paddingHorizontal: SPACING.xs,
+  },
   chipRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
   },
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.round,
@@ -542,8 +397,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.outlineVariant,
   },
   chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryContainer,
+    borderColor: COLORS.primaryContainer,
   },
   chipText: {
     ...TYPOGRAPHY.labelSm,

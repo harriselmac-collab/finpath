@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
+import AppText from '../Text/AppText';
 
 export interface BadgeProps {
   label: string;
@@ -23,14 +24,14 @@ export const Badge: React.FC<BadgeProps> = ({ label, type = 'default', style }) 
       case 'important':
       case 'warning':
         return {
-          bg: '#FFF8EA',
+          bg: COLORS.warningBackground,
           border: COLORS.warning,
-          text: '#B27B00',
+          text: COLORS.warning,
           icon: 'alert-circle-outline',
         };
       case 'error':
         return {
-          bg: '#FFF2F2',
+          bg: COLORS.errorBackground,
           border: COLORS.error,
           text: COLORS.error,
           icon: 'warning-outline',
@@ -53,7 +54,7 @@ export const Badge: React.FC<BadgeProps> = ({ label, type = 'default', style }) 
       {config.icon && (
         <Ionicons name={config.icon as any} size={11} color={config.text} style={styles.icon} />
       )}
-      <Text style={[styles.text, { color: config.text }]}>{label}</Text>
+      <AppText variant="labelSm" style={[styles.text, { color: config.text }]}>{label}</AppText>
     </View>
   );
 };

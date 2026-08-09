@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src https://hvtmjkdldpijqwvbatpy.supabase.co wss://hvtmjkdldpijqwvbatpy.supabase.co; style-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'">
+  <title>Delete a Pocket Ahead account</title>
+  <link rel="stylesheet" href="legal.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.2/dist/umd/supabase.min.js" integrity="sha384-sgcvElP/LlNRtORGYFLO/9K/bENcpJK19HgvqslWXog6d8f/Va4TpltGiBlGntCM" crossorigin="anonymous"></script>
+  <script defer src="account-deletion.js"></script>
+</head>
+<body>
+  <main>
+    <article class="card">
+      <p class="eyebrow">Pocket Ahead · Kael Labs</p>
+      <h1>Delete your account</h1>
+      <p class="meta">This secure page lets you permanently delete a Pocket Ahead account without reinstalling the app.</p>
+
+      <div class="notice danger">
+        Deletion is irreversible. Active profile data, onboarding answers, transactions, bills, debts, goals, preferences, profile images and authentication access will be deleted. Limited security logs and encrypted infrastructure backups may remain temporarily for fraud prevention, legal compliance and backup rotation before expiry.
+      </div>
+
+      <section id="signed-out">
+        <h2>1. Sign in to verify ownership</h2>
+        <form id="email-sign-in">
+          <label for="email">Account email</label>
+          <input id="email" name="email" type="email" autocomplete="username" inputmode="email" required>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required minlength="8">
+          <div class="actions">
+            <button type="submit">Sign in securely</button>
+            <button id="google-sign-in" class="secondary" type="button">Continue with Google</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="signed-in" class="hidden">
+        <h2>2. Confirm permanent deletion</h2>
+        <p>Signed in as <strong id="account-email"></strong>.</p>
+        <label for="confirmation">Type DELETE to continue</label>
+        <input id="confirmation" name="confirmation" type="text" autocomplete="off" spellcheck="false">
+        <div class="actions">
+          <button id="delete-account" class="danger" type="button" disabled>Delete account permanently</button>
+          <button id="sign-out" class="secondary" type="button">Use another account</button>
+        </div>
+      </section>
+
+      <section id="deletion-complete" class="hidden">
+        <h2>Deletion complete</h2>
+        <p>The account can no longer be used to sign in to Pocket Ahead.</p>
+      </section>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <p>If you cannot sign in, use the developer contact shown on the Pocket Ahead Google Play listing. You can also delete an authenticated account in the app under Profile → Privacy centre → Delete my account.</p>
+    </article>
+    <footer><a href="privacy-policy.html">Privacy policy</a> · <a href="index.html">Legal home</a></footer>
+  </main>
+</body>
+</html>

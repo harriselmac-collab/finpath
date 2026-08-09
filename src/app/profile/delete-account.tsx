@@ -8,14 +8,14 @@ import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useSessionStore } from '../../store/sessionStore';
-import { useOnboardingStore } from '../../store/onboardingStore';
-import { supabase } from '../../services/supabase/supabaseClient';
+import { isSupabaseConfigured, supabase } from '../../services/supabase/supabaseClient';
+import { clearLocalUserData } from '../../services/data/clearLocalUserData';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user, signOut } = useSessionStore();
-  const { resetOnboarding } = useOnboardingStore();
 
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,14 +38,8 @@ export default function DeleteAccountScreen() {
             setLoading(true);
             try {
               if (user) {
-                const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
-                if (!isMockSupabase) {
-                  await supabase.from('account_deletion_requests').insert({
-                    user_id: user.id,
-                    reason: 'User requested in-app account deletion',
-                  });
-
-                  const { error } = await supabase.rpc('delete_user_account');
+                if (isSupabaseConfigured) {
+                  const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
                   
                   if (error) {
                     throw error;
@@ -53,14 +47,21 @@ export default function DeleteAccountScreen() {
                 }
               }
 
-              resetOnboarding();
+              await clearLocalUserData();
               await signOut();
 
               Alert.alert(t('common.accountDeletedTitle', 'Account Deleted'), t('common.accountDeletedMsg', 'Your profile and data have been successfully purged.'), [
                 { text: t('common.ok', 'OK'), onPress: () => router.replace('/auth') }
               ]);
-            } catch (err: any) {
-              Alert.alert(t('common.error', 'Error'), err.message || t('common.deleteFailed', 'An error occurred during account deletion.'));
+            } catch (err: unknown) {
+              let message = t('common.deleteFailed', 'An error occurred during account deletion.');
+              if (err instanceof FunctionsHttpError) {
+                const response = await err.context.json().catch(() => null);
+                if (response?.error === 'recent_authentication_required') {
+                  message = t('common.recentAuthRequired', 'For security, sign out and sign in again before deleting your account.');
+                }
+              }
+              Alert.alert(t('common.error', 'Error'), message);
             } finally {
               setLoading(false);
             }
@@ -74,7 +75,12 @@ export default function DeleteAccountScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back', 'Back')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.deleteAccount.title')}</Text>
@@ -105,7 +111,7 @@ export default function DeleteAccountScreen() {
             <Text style={styles.bulletText}>{t('settings.deleteAccount.bullet4')}</Text>
           </View>
 
-          <Text style={styles.bodyTextSmall}>{t('settings.deleteAccount.purgeDesc2')}</Text>
+          <Text style={styles.bodyTextSmall}>{t('support.accountDeletion.retention')}</Text>
         </Card>
 
         {/* Confirmation Form */}
@@ -121,6 +127,7 @@ export default function DeleteAccountScreen() {
             placeholderTextColor={COLORS.textSecondary}
             autoCapitalize="characters"
             autoCorrect={false}
+            accessibilityLabel={t('settings.deleteAccount.confirmDesc')}
           />
 
           <Button
@@ -188,7 +195,7 @@ const styles = StyleSheet.create({
   },
   warningCard: {
     borderColor: COLORS.error,
-    backgroundColor: '#FFF2F2',
+    backgroundColor: COLORS.errorBackground,
   },
   warningIcon: {
     marginBottom: SPACING.sm,

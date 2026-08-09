@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, GestureResponderEvent, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, GestureResponderEvent, Dimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Line, Text as SvgText, Circle, G } from 'react-native-svg';
 import Animated, { useSharedValue, withTiming, FadeInUp, withDelay } from 'react-native-reanimated';
@@ -7,6 +7,8 @@ import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/th
 import { formatCurrency } from '../../utils/currency';
 import { useTransactionsStore } from '../../store/transactionsStore';
 import { Icon } from './Icon';
+import AppText from '../Text/AppText';
+import { useTranslation } from 'react-i18next';
 
 const CHART_HEIGHT = 160;
 const CHART_PADDING_LEFT = 50;
@@ -18,15 +20,10 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
   currencySymbol,
 }) => {
   const router = useRouter();
+  const { i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage || i18n.language;
   const { getMonthlyTotals } = useTransactionsStore();
-  const [windowWidth, setWindowWidth] = useState(() => {
-    try {
-      const { width } = require('react-native').Dimensions.get('window');
-      return width;
-    } catch {
-      return 320;
-    }
-  });
+  const [windowWidth, setWindowWidth] = useState(() => Dimensions.get('window').width);
   const containerWidth = windowWidth - 40;
   const chartWidth = Math.min(containerWidth, 400);
 
@@ -44,15 +41,13 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
   }, [getMonthlyTotals]);
 
   useEffect(() => {
-    const { Dimensions } = require('react-native');
-    const addListener = (Dimensions as any).addEventListener;
-    const subscription = addListener?.('change', (e: any) => {
-      setWindowWidth(e?.window?.width ?? windowWidth);
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setWindowWidth(window.width);
     });
-    return () => subscription?.remove?.();
+    return () => subscription.remove();
   }, []);
 
-  const { maxVal, minVal, valRange, paddedMin, paddedMax, points, path } = useMemo(() => {
+  const { paddedMin, paddedMax, points, path } = useMemo(() => {
     const amounts = chartData.amounts;
     if (amounts.length < 2) {
       return {
@@ -95,7 +90,7 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
     pointOpacity.value = 0;
     drawProgress.value = withTiming(1, { duration: 800 });
     pointOpacity.value = withDelay(600, withTiming(1, { duration: 300 }));
-  }, [chartData]);
+  }, [chartData, drawProgress, pointOpacity]);
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -116,29 +111,29 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
     return [-1, -0.5, 0, 0.5, 1].map((ratio) => {
       const val = paddedMin + ratio * (paddedMax - paddedMin);
       const y = CHART_PADDING_TOP + ((1 - ratio) * (CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM));
-      const formatted = val === 0 ? '0' : `${val >= 0 ? '+' : '-'}${formatCurrency(Math.abs(val), currencySymbol).split('.')[0]}`;
+      const formatted = val === 0 ? '0' : `${val >= 0 ? '+' : '-'}${formatCurrency(Math.abs(val), currencySymbol, locale, 0)}`;
       return { val, y, formatted };
     });
-  }, [points.length, paddedMin, paddedMax, currencySymbol]);
+  }, [points.length, paddedMin, paddedMax, currencySymbol, locale]);
 
   if (chartData.months.length === 0) {
     return (
       <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Monthly Net Flow</Text>
-        <Text style={styles.chartSubtitle}>Income (+) vs Expenses (-)</Text>
+        <AppText variant="bodySemiBold" style={styles.chartTitle}>Monthly Net Flow</AppText>
+        <AppText variant="caption" style={styles.chartSubtitle}>Income (+) vs Expenses (-)</AppText>
         <View style={styles.emptyStateContainer}>
           <Icon name="analytics-outline" size={36} color={COLORS.textSecondary} style={{ marginBottom: SPACING.xs }} />
-          <Text style={styles.emptyStateTitle}>No spending history yet</Text>
-          <Text style={styles.emptyStateText}>
+          <AppText variant="bodySemiBold" style={styles.emptyStateTitle}>No spending history yet</AppText>
+          <AppText variant="caption" style={styles.emptyStateText}>
             Add your first transaction to start seeing monthly income and expense trends.
-          </Text>
+          </AppText>
           <TouchableOpacity
             style={styles.emptyStateButton}
             onPress={() => router.push('/transactions?openForm=true')}
             accessibilityRole="button"
             accessibilityLabel="Add Transaction"
           >
-            <Text style={styles.emptyStateButtonText}>+ Add Transaction</Text>
+            <AppText variant="labelSm" style={styles.emptyStateButtonText}>+ Add Transaction</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -147,8 +142,8 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
 
   return (
     <Animated.View entering={FadeInUp.duration(400)} style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Monthly Net Flow</Text>
-      <Text style={styles.chartSubtitle}>Income (+) vs Expenses (-)</Text>
+      <AppText variant="bodySemiBold" style={styles.chartTitle}>Monthly Net Flow</AppText>
+      <AppText variant="caption" style={styles.chartSubtitle}>Income (+) vs Expenses (-)</AppText>
 
       <View
         onStartShouldSetResponder={() => true}
@@ -173,7 +168,7 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
                 strokeDasharray={val === 0 ? '2,2' : '4,4'}
               />
               {val !== 0 && (
-                <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontSize={8} fill={val >= 0 ? COLORS.secondary : COLORS.error} textAnchor="end">
+                <SvgText x={CHART_PADDING_LEFT - 8} y={y + 4} fontFamily={TYPOGRAPHY.caption.fontFamily} fontSize={8} fill={val >= 0 ? COLORS.secondary : COLORS.error} textAnchor="end">
                   {formatted}
                 </SvgText>
               )}
@@ -184,7 +179,7 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
           {chartData.months.map((month, idx) => {
             const x = CHART_PADDING_LEFT + (idx / Math.max(chartData.months.length - 1, 1)) * (chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT);
             return (
-              <SvgText key={month} x={x} y={CHART_HEIGHT - 6} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">
+              <SvgText key={month} x={x} y={CHART_HEIGHT - 6} fontFamily={TYPOGRAPHY.caption.fontFamily} fontSize={9} fill={COLORS.textSecondary} textAnchor="middle">
                 {month}
               </SvgText>
             );
@@ -235,10 +230,10 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
             ]}
             pointerEvents="none"
           >
-            <Text style={styles.tooltipMonth}>{chartData.months[hoveredIndex]}</Text>
-            <Text style={[styles.tooltipAmount, chartData.amounts[hoveredIndex] >= 0 ? { color: COLORS.secondary } : { color: COLORS.error }]}>
-              {chartData.amounts[hoveredIndex] >= 0 ? '+' : '-'}{formatCurrency(Math.abs(chartData.amounts[hoveredIndex]), currencySymbol)}
-            </Text>
+            <AppText variant="caption" style={styles.tooltipMonth}>{chartData.months[hoveredIndex]}</AppText>
+            <AppText variant="bodySemiBold" style={[styles.tooltipAmount, chartData.amounts[hoveredIndex] >= 0 ? { color: COLORS.secondary } : { color: COLORS.error }]}>
+              {chartData.amounts[hoveredIndex] >= 0 ? '+' : '-'}{formatCurrency(Math.abs(chartData.amounts[hoveredIndex]), currencySymbol, locale)}
+            </AppText>
           </View>
         )}
       </View>
@@ -246,7 +241,7 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
       {/* Zero line indicator */}
       <View style={styles.zeroLineLabel}>
         <View style={{ height: 1, backgroundColor: COLORS.border, marginHorizontal: 20 }} />
-        <Text style={styles.zeroLineText}>Zero</Text>
+        <AppText variant="caption" style={styles.zeroLineText}>Zero</AppText>
         <View style={{ height: 1, backgroundColor: COLORS.border, marginHorizontal: 20 }} />
       </View>
     </Animated.View>
@@ -255,7 +250,7 @@ export const SpendingTrendsChart: React.FC<{ currencySymbol: string }> = ({
 
 const styles = StyleSheet.create({
   chartContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.lg,
@@ -308,7 +303,7 @@ const styles = StyleSheet.create({
   },
   tooltip: {
     position: 'absolute',
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryContainer,
     borderRadius: 4,
     paddingVertical: 6,
     paddingHorizontal: 8,

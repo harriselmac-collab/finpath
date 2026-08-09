@@ -1,4 +1,4 @@
-# App Store Review Notes: FinPath
+# App Store Review Notes: Pocket Ahead
 
 Instructions for App Store reviewers.
 

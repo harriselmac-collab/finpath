@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../constants/theme';
+import AppText from '../Text/AppText';
 
 export interface DropdownMenuItem {
   key: string;
@@ -172,7 +173,8 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
                     style={styles.menuItemIcon}
                   />
                 )}
-                <Text
+                <AppText
+                  variant="bodyMd"
                   style={[
                     styles.menuItemText,
                     item.key === selectedKey && styles.menuItemTextSelected,
@@ -180,7 +182,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
                   ]}
                 >
                   {item.label}
-                </Text>
+                </AppText>
                 {item.key === selectedKey && (
                   <Ionicons name="checkmark" size={18} color={COLORS.primary} />
                 )}
@@ -202,7 +204,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceContainerLowest,
     paddingHorizontal: SPACING.md,
     gap: SPACING.sm,
     ...SHADOWS.sm,

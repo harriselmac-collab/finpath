@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, Linking } from 'react-native';
+import { View, StyleSheet, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from './Card';
 import { Button } from './Button';
+import AppText from '../Text/AppText';
 
 export interface PassCardProps {
   title: string;
@@ -79,16 +80,16 @@ export const PassCard: React.FC<PassCardProps> = ({
           <Ionicons name={getTypeIcon() as any} size={24} color={getTypeColor()} />
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <AppText variant="h3" style={styles.title}>{title}</AppText>
+          <AppText variant="caption" style={styles.subtitle}>{subtitle}</AppText>
         </View>
       </View>
 
       <View style={styles.detailsContainer}>
         {details.map((detail, index) => (
           <View key={index} style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{detail.label}</Text>
-            <Text style={styles.detailValue}>{detail.value}</Text>
+            <AppText variant="bodyMedium" style={styles.detailLabel}>{detail.label}</AppText>
+            <AppText variant="bodySemiBold" style={styles.detailValue}>{detail.value}</AppText>
           </View>
         ))}
       </View>

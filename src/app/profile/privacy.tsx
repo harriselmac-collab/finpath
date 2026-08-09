@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { supabase } from '../../services/supabase/supabaseClient';
+import { synchronizeFinancialData } from '../../services/sync/financialSync';
 
 export default function PrivacyCentreScreen() {
   const router = useRouter();
@@ -17,14 +18,11 @@ export default function PrivacyCentreScreen() {
   const { answers, setAnswers } = useOnboardingStore();
   const { user } = useSessionStore();
 
-  const [analytics, setAnalytics] = useState(true);
-  const [marketing, setMarketing] = useState(false);
-
   // Special category religion consent
   const [religionConsent, setReligionConsent] = useState(answers.religion_consent_granted || false);
   const [religionVal, setReligionVal] = useState(answers.religion || 'Prefer not to say');
 
-  const handleReligionToggle = async (val: boolean) => {
+  const handleReligionToggle = (val: boolean) => {
     setReligionConsent(val);
     if (!val) {
       setReligionVal('Prefer not to say');
@@ -42,31 +40,26 @@ export default function PrivacyCentreScreen() {
       if (user) {
         const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
         if (!isMockSupabase) {
-          await supabase.from('privacy_consents').upsert([
-            {
-              user_id: user.id,
-              consent_type: 'religion',
-              granted: religionConsent,
-              policy_version: '1.0.0',
-              updated_at: new Date().toISOString(),
-            },
-            {
-              user_id: user.id,
-              consent_type: 'analytics',
-              granted: analytics,
-              policy_version: '1.0.0',
-              updated_at: new Date().toISOString(),
-            },
-          ]);
+          const { error } = await supabase.from('privacy_consents').insert({
+            user_id: user.id,
+            consent_type: 'religion',
+            granted: religionConsent,
+            policy_version: '1.0.0',
+            updated_at: new Date().toISOString(),
+          });
+          if (error) throw error;
         }
       }
 
       setAnswers(updatedAnswers);
+      if (user && !(await synchronizeFinancialData())) {
+        throw new Error('consent_sync_failed');
+      }
       Alert.alert(t('common.success', 'Success'), t('common.saved', 'Privacy consents updated successfully.'), [
         { text: t('common.ok', 'OK'), onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') }
       ]);
-    } catch (err: any) {
-      Alert.alert(t('common.error', 'Error'), err.message || t('common.saveFailed', 'Failed to save consents.'));
+    } catch {
+      Alert.alert(t('common.error', 'Error'), t('common.saveFailed', 'Failed to save consents.'));
     }
   };
 
@@ -75,6 +68,9 @@ export default function PrivacyCentreScreen() {
       key={value}
       style={[styles.optionItem, religionVal === value && styles.optionItemSelected]}
       onPress={() => setReligionVal(value)}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: religionVal === value }}
+      accessibilityLabel={label}
     >
       <Text style={[styles.optionText, religionVal === value && styles.optionTextSelected]}>{label}</Text>
       {religionVal === value && (
@@ -87,7 +83,12 @@ export default function PrivacyCentreScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.accessibility.back')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.privacy.title')}</Text>
@@ -114,8 +115,9 @@ export default function PrivacyCentreScreen() {
             <Switch
               value={religionConsent}
               onValueChange={handleReligionToggle}
-              trackColor={{ false: COLORS.outlineVariant, true: COLORS.primary }}
+              trackColor={{ false: COLORS.outlineVariant, true: COLORS.secondary }}
               thumbColor={COLORS.white}
+              accessibilityLabel={t('settings.privacy.culturalTitle')}
             />
           </View>
 
@@ -131,52 +133,9 @@ export default function PrivacyCentreScreen() {
           )}
         </Card>
 
-        {/* General Tracking */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>{t('settings.privacy.trackingHeader')}</Text>
-          
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleText}>
-              <Text style={styles.toggleTitle}>{t('settings.privacy.crashTitle')}</Text>
-              <Text style={styles.toggleDesc}>{t('settings.privacy.crashDesc')}</Text>
-            </View>
-            <Switch
-              value={analytics}
-              onValueChange={setAnalytics}
-              trackColor={{ false: COLORS.outlineVariant, true: COLORS.primary }}
-              thumbColor={COLORS.white}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleText}>
-              <Text style={styles.toggleTitle}>{t('settings.privacy.marketingTitle')}</Text>
-              <Text style={styles.toggleDesc}>{t('settings.privacy.marketingDesc')}</Text>
-            </View>
-            <Switch
-              value={marketing}
-              onValueChange={setMarketing}
-              trackColor={{ false: COLORS.outlineVariant, true: COLORS.primary }}
-              thumbColor={COLORS.white}
-            />
-          </View>
-        </Card>
-
         {/* Core Actions */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>{t('settings.privacy.rightsHeader')}</Text>
-          
-          <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/profile/ai-consent')}>
-            <View style={styles.actionLeft}>
-              <Ionicons name="sparkles-outline" size={20} color={COLORS.primary} style={styles.iconSpacing} />
-              <Text style={styles.actionText}>{t('settings.privacy.aiConsent')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
 
           <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/profile/export-data')}>
             <View style={styles.actionLeft}>

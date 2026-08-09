@@ -21,6 +21,7 @@ export interface FinancialProfileInput {
 export interface FinancialProfileOutput {
   totalMonthlyIncome: number;
   essentialMonthlyExpenses: number;
+  flexibleMonthlyExpenses: number;
   minimumMonthlyDebtPayments: number;
   monthlyAnnualExpensesPortion: number;
   requiredUpcomingContributions: number;
@@ -30,10 +31,26 @@ export interface FinancialProfileOutput {
   debtPressure: 'low' | 'medium' | 'high' | 'critical';
   debtPressureRatio: number;
   budgetDeficit: boolean;
-  emergencyFundCapacityMonths: number;
+  incomeCoverageRatio: number | null;
   incomeInstabilityRisk: 'low' | 'medium' | 'high';
   upcomingExpenseRisk: 'low' | 'medium' | 'high';
 }
+
+interface ReviewedExpense {
+  id: string;
+  amount: number;
+  isEssential: boolean;
+}
+
+const isReviewedExpense = (value: unknown): value is ReviewedExpense => {
+  if (!value || typeof value !== 'object') return false;
+  const expense = value as Partial<ReviewedExpense>;
+  return typeof expense.id === 'string'
+    && typeof expense.amount === 'number'
+    && Number.isFinite(expense.amount)
+    && expense.amount >= 0
+    && typeof expense.isEssential === 'boolean';
+};
 
 /**
  * Calculate the monthly contribution for an annual bill.
@@ -50,6 +67,9 @@ export const calculateFinancialProfile = (
   input: FinancialProfileInput
 ): FinancialProfileOutput => {
   const { answers, debts, annualBills = [] } = input;
+  const reviewedExpenses = Array.isArray(answers.reviewedExpenses)
+    ? answers.reviewedExpenses.filter(isReviewedExpense)
+    : null;
 
   // 1. Income Calculations
   const mainIncome = Number(answers.mainIncome || 0);
@@ -78,7 +98,8 @@ export const calculateFinancialProfile = (
   const vehicleMaintenance = hasVehicle ? Number(answers.vehicleMaintenance || 0) : 0;
 
   // Sum raw essential expenses (excluding debts/annuals)
-  const essentialMonthlyExpenses = safeSum([
+  const calculatedEssentialExpenses = safeSum([
+    Number(answers.essentialBillsDue || 0),
     housing,
     electricity,
     water,
@@ -94,6 +115,23 @@ export const calculateFinancialProfile = (
     fuel,
     vehicleMaintenance,
   ]);
+  const essentialMonthlyExpenses = reviewedExpenses
+    ? safeSum(
+        reviewedExpenses
+          .filter(({ id, isEssential }) => isEssential && id !== 'vehicleLoan' && id !== 'debtsMinimum')
+          .map(({ amount }) => Number(amount) || 0),
+      )
+    : calculatedEssentialExpenses;
+  const flexibleMonthlyExpenses = reviewedExpenses
+    ? safeSum(
+        reviewedExpenses
+          .filter(({ id, isEssential }) => !isEssential && id !== 'vehicleLoan' && id !== 'debtsMinimum')
+          .map(({ amount }) => amount),
+      )
+    : safeSum([
+        Number(answers.subscriptions || 0),
+        Number(answers.otherBills || 0),
+      ]);
 
   // 3. Minimum Monthly Debt Payments
   // Include vehicle financing loans if answers indicate vehicle loan
@@ -140,24 +178,20 @@ export const calculateFinancialProfile = (
     0
   );
 
-  // 5. Required Upcoming Event contributions (Cultural events, holidays)
-  // Mock contribution: e.g. Muslim users preparing for Ramadan / Eid
-  let requiredUpcomingContributions = 0;
-  if (answers.culturalPref === 'muslim') {
-    // Standard mock preparation cost for Eid/Ramadan: MAD 1200 / year -> MAD 100 / month
-    requiredUpcomingContributions = 100;
-  }
+  // Cultural preferences never imply a financial commitment without a user-entered amount.
+  const requiredUpcomingContributions = 0;
 
   // 6. Real Available Monthly Balance
-  // Balance = Income - Essentials - Debt Min - Annual Portion - Event Contributions
-  const essentialTotalCosts = safeSum([
+  // Balance = Income - reviewed monthly spending - Debt Min - Annual Portion - Event Contributions
+  const plannedOutflows = safeSum([
     essentialMonthlyExpenses,
+    flexibleMonthlyExpenses,
     minimumMonthlyDebtPayments,
     monthlyAnnualExpensesPortion,
     requiredUpcomingContributions,
   ]);
   
-  const realAvailableMonthlyBalance = safeSubtract(totalMonthlyIncome, essentialTotalCosts);
+  const realAvailableMonthlyBalance = safeSubtract(totalMonthlyIncome, plannedOutflows);
 
   // 7. safe daily spending
   // Derived from remaining available balance (over 30 days)
@@ -184,16 +218,14 @@ export const calculateFinancialProfile = (
   }
 
   // 10. budget deficit detection
-  // Deficit occurs when total essential costs (including minimum debt) exceed total income
-  const budgetDeficit = totalMonthlyIncome < safeAdd(essentialMonthlyExpenses, minimumMonthlyDebtPayments);
+  // The status must match the same complete plan total shown to the user.
+  const budgetDeficit = realAvailableMonthlyBalance < 0;
 
-  // 11. emergency-fund capacity
-  // Expressed as: how many months of essential expenses does their current available savings capacity support
-  // Let's compute based on: if they save their savingsCapacity, how long to build 3 months of essentials
+  // 11. income coverage ratio. This is not an emergency-savings balance.
   const monthlyEssentials = safeAdd(essentialMonthlyExpenses, minimumMonthlyDebtPayments);
-  const emergencyFundCapacityMonths = monthlyEssentials > 0
-    ? safeDivide(totalMonthlyIncome, monthlyEssentials) // basic safety ratio (income to essential)
-    : 0;
+  const incomeCoverageRatio = monthlyEssentials > 0
+    ? safeDivide(totalMonthlyIncome, monthlyEssentials)
+    : null;
 
   // 12. income instability risk
   let incomeInstabilityRisk: 'low' | 'medium' | 'high' = 'low';
@@ -217,6 +249,7 @@ export const calculateFinancialProfile = (
   return {
     totalMonthlyIncome,
     essentialMonthlyExpenses,
+    flexibleMonthlyExpenses,
     minimumMonthlyDebtPayments,
     monthlyAnnualExpensesPortion,
     requiredUpcomingContributions,
@@ -226,7 +259,7 @@ export const calculateFinancialProfile = (
     debtPressure,
     debtPressureRatio,
     budgetDeficit,
-    emergencyFundCapacityMonths,
+    incomeCoverageRatio,
     incomeInstabilityRisk,
     upcomingExpenseRisk,
   };

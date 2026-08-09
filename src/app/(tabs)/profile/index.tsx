@@ -1,57 +1,93 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, I18nManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS, SPACING, RADIUS } from '../../../constants/theme';
+import AppText from '../../../components/Text/AppText';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useSessionStore } from '../../../store/sessionStore';
+import { useSyncStatusStore } from '../../../store/syncStatusStore';
+import { synchronizeFinancialData } from '../../../services/sync/financialSync';
+import { getLanguageOption } from '../../../services/localization/languages';
+import { normalizeCurrencyCode } from '../../../constants/currencies';
+import { AppDialog, type AppDialogAction } from '../../../components/ui/AppDialog';
+import { useTabContentBottomInset } from '../../../hooks/useTabContentBottomInset';
+import { formatCountryCurrency } from '../../../services/localization/countries';
+import { useProfileImageUri } from '../../../hooks/useProfileImageUri';
+
+interface DialogState {
+  title: string;
+  message: string;
+  actions: AppDialogAction[];
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { answers, resetOnboarding } = useOnboardingStore();
   const { user, signOut } = useSessionStore();
+  const syncStatus = useSyncStatusStore((state) => state.status);
+  const lastSyncedAt = useSyncStatusStore((state) => state.lastSyncedAt);
+  const [failedImageUri, setFailedImageUri] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const contentBottomInset = useTabContentBottomInset();
+
+  const storedProfileImage = typeof answers.profileImage === 'string' ? answers.profileImage.trim() : '';
+  const profileImageUri = useProfileImageUri(storedProfileImage);
+  const showProfileImage = profileImageUri.length > 0 && failedImageUri !== profileImageUri;
+  const employmentLabel = String(answers.employmentStatus
+    ? t(`onboarding.options.${answers.employmentStatus}`, answers.employmentStatus)
+    : t('profile.statusNotSet'));
+  const locale = i18n.resolvedLanguage || i18n.language;
+  const currentCurrencyCode = normalizeCurrencyCode(answers.currency);
+  const currentRegion = formatCountryCurrency(answers.country, currentCurrencyCode, locale) || t('profile.region.notSet');
+  const currentLanguage = getLanguageOption(i18n.resolvedLanguage || i18n.language).label;
+  const openProfileEditor = () => router.push('/profile/edit');
 
   const handleResetData = () => {
-    Alert.alert(
-      'Reset Onboarding Data',
-      'Are you sure you want to reset your onboarding questions? This will wipe your locally cached assessment and return you to the onboarding quiz. Your Supabase authentication account and custom transactions will NOT be deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    setDialog({
+      title: t('profile.resetDialog.title'),
+      message: t('profile.resetDialog.message'),
+      actions: [
+        { label: t('profile.resetDialog.cancel') },
         {
-          text: 'Reset Assessment',
-          style: 'destructive',
+          label: t('profile.resetDialog.confirm'),
+          destructive: true,
           onPress: () => {
             resetOnboarding();
             router.replace('/onboarding/welcome');
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const renderSectionHeader = (title: string) => (
-    <Text style={styles.sectionHeader}>{title}</Text>
+    <AppText variant="labelSm" style={styles.sectionHeader} role="heading" aria-level={2}>
+      {title}
+    </AppText>
   );
 
   interface RowProps {
     icon: string;
     title: string;
     route: string;
+    value?: string;
     isDestructive?: boolean;
   }
 
-  const renderRow = ({ icon, title, route, isDestructive }: RowProps) => (
+  const renderRow = ({ icon, title, route, value, isDestructive }: RowProps) => (
     <TouchableOpacity
       key={route}
       style={styles.row}
       onPress={() => router.push(route as any)}
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={value ? `${title}. ${value}` : title}
     >
       <View style={styles.rowLeft}>
         <View style={[styles.iconBox, isDestructive && styles.destructiveIconBox]}>
@@ -59,14 +95,27 @@ export default function ProfileScreen() {
             name={icon as any}
             size={18}
             color={isDestructive ? COLORS.error : COLORS.primary}
+            accessible={false}
           />
         </View>
-        <Text style={[styles.rowTitle, isDestructive && styles.destructiveText]}>{title}</Text>
+
+        <View style={styles.rowCopy}>
+          <AppText variant="bodySemiBold" style={[styles.rowTitle, isDestructive && styles.destructiveText]}>
+            {title}
+          </AppText>
+          {value ? (
+            <AppText variant="supporting" style={styles.rowValue} numberOfLines={1}>
+              {value}
+            </AppText>
+          ) : null}
+        </View>
+
       </View>
       <Ionicons
-        name="chevron-forward"
+        name={I18nManager.isRTL ? 'chevron-back' : 'chevron-forward'}
         size={16}
         color={isDestructive ? COLORS.error : COLORS.textSecondary}
+        accessible={false}
       />
     </TouchableOpacity>
   );
@@ -75,136 +124,181 @@ export default function ProfileScreen() {
     if (answers.preferredName) {
       return answers.preferredName.trim().substring(0, 2).toUpperCase();
     }
-    return user?.email ? user.email.substring(0, 2).toUpperCase() : 'FP';
+    return user?.email ? user.email.substring(0, 2).toUpperCase() : 'PA';
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomInset }]}
+        showsVerticalScrollIndicator={false}
+        role="main"
+        accessibilityLabel={t('profile.title')}
+      >
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            {answers.profileImage ? (
-              <Image source={{ uri: answers.profileImage }} style={styles.avatarImage} />
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={openProfileEditor}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.avatar.change')}
+            accessibilityHint={t('profile.avatar.changeHint')}
+          >
+            {showProfileImage ? (
+              <Image
+                source={{ uri: profileImageUri }}
+                style={styles.avatarImage}
+                onError={() => setFailedImageUri(profileImageUri)}
+                accessible={false}
+              />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitials}>{getInitials()}</Text>
+                <AppText variant="headlineMd" style={styles.avatarInitials}>{getInitials()}</AppText>
               </View>
             )}
-          </View>
+            <View style={styles.avatarEditBadge}>
+              <Ionicons name="camera" size={14} color={COLORS.onAction} accessible={false} />
+            </View>
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {answers.preferredName || t('profile.guestUser', 'Guest User')}
-            </Text>
-            <Text style={styles.profileMeta} numberOfLines={1}>
-              {answers.employmentStatus
-                ? answers.employmentStatus.charAt(0).toUpperCase() + answers.employmentStatus.slice(1)
-                : t('profile.statusNotSet', 'Employment Status Not Set')}
-            </Text>
+            <AppText variant="cardTitle" style={styles.profileName} numberOfLines={1} role="heading" aria-level={1}>
+              {answers.preferredName || t('profile.guestUser')}
+            </AppText>
+            <AppText variant="bodySemiBold" style={styles.profileMeta} numberOfLines={1}>
+              {employmentLabel}
+            </AppText>
           </View>
           <TouchableOpacity
             style={styles.editHeaderBtn}
-            onPress={() => router.push('/profile/edit')}
-            accessibilityLabel="Edit profile"
+            onPress={openProfileEditor}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.editProfile')}
+            accessibilityHint={t('profile.editProfileHint')}
           >
-            <Ionicons name="create-outline" size={20} color={COLORS.primary} />
+            <Ionicons name="create-outline" size={20} color={COLORS.primary} accessible={false} />
           </TouchableOpacity>
         </View>
 
+        {user ? (
+          <TouchableOpacity
+            style={styles.syncCard}
+            onPress={() => { if (syncStatus === 'failed' || syncStatus === 'offline') void synchronizeFinancialData(); }}
+            disabled={syncStatus !== 'failed' && syncStatus !== 'offline'}
+            accessibilityRole="button"
+          >
+            <Ionicons name={syncStatus === 'synced' ? 'cloud-done-outline' : 'cloud-upload-outline'} size={20} color={COLORS.primary} />
+            <View style={styles.syncText}>
+              <AppText variant="bodySemiBold" style={styles.syncTitle}>{t(`sync.${syncStatus}`, syncStatus)}</AppText>
+              <AppText variant="caption" style={styles.syncDetail}>
+                {lastSyncedAt ? t('sync.lastSynced', { time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(lastSyncedAt)) }) : t('sync.localNotice')}
+              </AppText>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.localModeCard}>
+            <Ionicons name="phone-portrait-outline" size={22} color={COLORS.primary} />
+            <View style={styles.syncText}>
+              <AppText variant="bodySemiBold" style={styles.syncTitle}>{t('onboarding.account.localTitle')}</AppText>
+              <AppText variant="supporting" style={styles.syncDetail}>{t('onboarding.account.localBody')}</AppText>
+              <Button title={t('onboarding.account.syncAction')} onPress={() => router.push('/auth')} variant="text" style={styles.cloudButton} />
+            </View>
+          </View>
+        )}
+
         {/* Section: Account */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.account', 'Account'))}
-          {renderRow({ icon: 'person-outline', title: t('profile.rows.personalInfo', 'Personal Information'), route: '/profile/edit' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.account'))}
+          {renderRow({ icon: 'person-outline', title: t('profile.rows.personalInfo'), route: '/profile/edit' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'briefcase-outline', title: t('profile.rows.incomeEmployment', 'Income & Employment'), route: '/profile/income' })}
+          {renderRow({ icon: 'briefcase-outline', title: t('profile.rows.incomeEmployment'), route: '/profile/income' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'people-outline', title: t('profile.rows.familyDependants', 'Family & Dependants'), route: '/profile/family' })}
+          {renderRow({ icon: 'people-outline', title: t('profile.rows.familyDependants'), route: '/profile/family' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'cash-outline', title: t('profile.rows.currencyRegion', 'Currency & Region'), route: '/profile/region' })}
+          {renderRow({ icon: 'cash-outline', title: t('profile.rows.currencyRegion'), value: currentRegion, route: '/profile/region' })}
         </Card>
 
         {/* Section: Financial Management */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.financialManagement', 'Financial Management'))}
-          {renderRow({ icon: 'card-outline', title: t('profile.rows.debtTracker', 'Debt Tracker'), route: '/profile/debts' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.financialManagement'))}
+          {renderRow({ icon: 'card-outline', title: t('profile.rows.debtTracker'), route: '/profile/debts' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'trophy-outline', title: t('profile.rows.goalsExpenses', 'Goals & Upcoming Expenses'), route: '/profile/goals' })}
+          {renderRow({ icon: 'trophy-outline', title: t('profile.rows.goalsExpenses'), route: '/profile/goals' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'calendar-outline', title: t('profile.rows.recurringBills', 'Recurring Bills'), route: '/profile/bills' })}
+          {renderRow({ icon: 'calendar-outline', title: t('profile.rows.recurringBills'), route: '/profile/bills' })}
         </Card>
 
         {/* Section: Preferences */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.preferences', 'Preferences'))}
-          {renderRow({ icon: 'globe-outline', title: t('profile.rows.language', 'Language'), route: '/profile/language' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.preferences'))}
+          {renderRow({ icon: 'globe-outline', title: t('profile.rows.language'), value: currentLanguage, route: '/profile/language' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'notifications-outline', title: t('profile.rows.notifications', 'Notifications'), route: '/profile/notifications' })}
+          {renderRow({ icon: 'notifications-outline', title: t('profile.rows.notifications'), route: '/profile/notifications' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'color-palette-outline', title: t('profile.rows.appearance', 'Appearance'), route: '/profile/appearance' })}
+          {renderRow({ icon: 'color-palette-outline', title: t('profile.rows.appearance'), route: '/profile/appearance' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'body-outline', title: t('profile.rows.accessibility', 'Accessibility'), route: '/profile/accessibility' })}
+          {renderRow({ icon: 'body-outline', title: t('profile.rows.accessibility'), route: '/profile/accessibility' })}
         </Card>
 
         {/* Section: Privacy and Security */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.privacySecurity', 'Privacy and Security'))}
-          {renderRow({ icon: 'shield-checkmark-outline', title: t('profile.rows.security', 'Security'), route: '/profile/security' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.privacySecurity'))}
+          {renderRow({ icon: 'shield-checkmark-outline', title: t('profile.rows.security'), route: '/profile/security' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'lock-closed-outline', title: t('profile.rows.privacyCentre', 'Privacy Centre'), route: '/profile/privacy' })}
+          {renderRow({ icon: 'lock-closed-outline', title: t('profile.rows.privacyCentre'), route: '/profile/privacy' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'sparkles-outline', title: t('profile.rows.aiConsent', 'AI & Data Consent'), route: '/profile/ai-consent' })}
-          <View style={styles.divider} />
-          {renderRow({ icon: 'download-outline', title: t('profile.rows.exportData', 'Export My Data'), route: '/profile/export-data' })}
-          <View style={styles.divider} />
-          {renderRow({
-            icon: 'trash-outline',
-            title: t('profile.rows.deleteAccount', 'Delete My Account'),
-            route: '/profile/delete-account',
-            isDestructive: true,
-          })}
+          {renderRow({ icon: 'download-outline', title: t('profile.rows.exportData'), route: '/profile/export-data' })}
+          {user ? (
+            <>
+              <View style={styles.divider} />
+              {renderRow({
+                icon: 'trash-outline',
+                title: t('profile.rows.deleteAccount'),
+                route: '/profile/delete-account',
+                isDestructive: true,
+              })}
+            </>
+          ) : null}
         </Card>
 
         {/* Section: Support */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.support', 'Support'))}
-          {renderRow({ icon: 'help-circle-outline', title: t('profile.rows.helpSupport', 'Help & Support'), route: '/profile/help' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.support'))}
+          {renderRow({ icon: 'help-circle-outline', title: t('profile.rows.helpSupport'), route: '/profile/help' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'mail-outline', title: t('profile.rows.contactSupport', 'Contact Support'), route: '/profile/contact' })}
+          {renderRow({ icon: 'mail-outline', title: t('profile.rows.contactSupport'), route: '/profile/contact' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'list-outline', title: t('profile.rows.faq', 'Frequently Asked Questions'), route: '/profile/faq' })}
+          {renderRow({ icon: 'list-outline', title: t('profile.rows.faq'), route: '/profile/faq' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'bug-outline', title: t('profile.rows.reportProblem', 'Report a Problem'), route: '/profile/report-problem' })}
+          {renderRow({ icon: 'bug-outline', title: t('profile.rows.reportProblem'), route: '/profile/report-problem' })}
         </Card>
 
         {/* Section: Legal */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.legal', 'Legal'))}
-          {renderRow({ icon: 'document-text-outline', title: t('profile.rows.privacyPolicy', 'Privacy Policy'), route: '/profile/legal/privacy' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.legal'))}
+          {renderRow({ icon: 'document-text-outline', title: t('profile.rows.privacyPolicy'), route: '/profile/legal/privacy' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'reader-outline', title: t('profile.rows.termsUse', 'Terms of Use'), route: '/profile/legal/terms' })}
+          {renderRow({ icon: 'reader-outline', title: t('profile.rows.termsUse'), route: '/profile/legal/terms' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'alert-circle-outline', title: t('profile.rows.financialDisclaimer', 'Financial Disclaimer'), route: '/profile/legal/financial-disclaimer' })}
+          {renderRow({ icon: 'alert-circle-outline', title: t('profile.rows.financialDisclaimer'), route: '/profile/legal/financial-disclaimer' })}
           <View style={styles.divider} />
-          {renderRow({ icon: 'information-circle-outline', title: t('profile.rows.aiDisclaimer', 'AI Disclaimer'), route: '/profile/legal/ai-disclaimer' })}
-          <View style={styles.divider} />
-          {renderRow({ icon: 'ribbon-outline', title: t('profile.rows.licenses', 'Open-source Licences'), route: '/profile/legal/licenses' })}
+          {renderRow({ icon: 'ribbon-outline', title: t('profile.rows.licenses'), route: '/profile/legal/licenses' })}
         </Card>
 
         {/* Section: About */}
-        <Card style={styles.sectionCard}>
-          {renderSectionHeader(t('profile.sections.about', 'About'))}
-          {renderRow({ icon: 'apps-outline', title: t('profile.rows.appInfo', 'App & System Info'), route: '/profile/about' })}
+        <Card style={styles.sectionCard} shadow="none">
+          {renderSectionHeader(t('profile.sections.about'))}
+          {renderRow({ icon: 'apps-outline', title: t('profile.rows.appInfo'), route: '/profile/about' })}
         </Card>
 
         {/* Developer Section */}
         {__DEV__ && (
-          <Card style={[styles.sectionCard, styles.devCard]}>
-            {renderSectionHeader(t('profile.devTools', 'Developer Tools (Debug Mode)'))}
-            <Text style={styles.devNotice}>
-              {t('profile.devNoticeText', 'These tools are shown only during development builds. They are automatically hidden in release production builds.')}
-            </Text>
+          <Card style={[styles.sectionCard, styles.devCard]} shadow="none">
+            {renderSectionHeader(t('profile.devTools'))}
+            <AppText variant="supporting" style={styles.devNotice}>
+              {t('profile.devNoticeText')}
+            </AppText>
             <Button
-              title={t('profile.resetOnboardingAssessment', 'Reset Onboarding Assessment')}
+              title={t('profile.resetOnboardingAssessment')}
               onPress={handleResetData}
               variant="destructive"
               style={styles.devResetBtn}
@@ -215,8 +309,9 @@ export default function ProfileScreen() {
         {/* Standard User Logout */}
         {user && (
           <Button
-            title={t('profile.signOutAccount', 'Sign Out Account')}
+            title={t('profile.signOutAccount')}
             onPress={async () => {
+              await AsyncStorage.setItem('pocket-ahead-welcome-back', 'true');
               await signOut();
               router.replace('/auth');
             }}
@@ -225,8 +320,14 @@ export default function ProfileScreen() {
           />
         )}
 
-        <View style={{ height: 100 }} />
       </ScrollView>
+      <AppDialog
+        visible={dialog !== null}
+        title={dialog?.title || ''}
+        message={dialog?.message || ''}
+        actions={dialog?.actions || []}
+        onRequestClose={() => setDialog(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -237,6 +338,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   scrollContent: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     padding: SPACING.md,
     gap: SPACING.md,
   },
@@ -248,16 +352,41 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
-    ...SHADOWS.sm,
   },
+  syncCard: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  localModeCard: {
+    minHeight: 88,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surfaceContainerLow,
+  },
+  cloudButton: { alignSelf: 'flex-start', minHeight: 44, marginTop: SPACING.sm, borderWidth: 1, borderColor: COLORS.outlineVariant },
+  syncText: { flex: 1 },
+  syncTitle: { color: COLORS.textPrimary, textTransform: 'capitalize' },
+  syncDetail: { color: COLORS.textSecondary },
   avatarContainer: {
-    marginRight: SPACING.md,
+    width: 64,
+    height: 64,
+    marginEnd: SPACING.md,
   },
   avatarPlaceholder: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -266,28 +395,37 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
   },
+  avatarEditBadge: {
+    position: 'absolute',
+    end: -2,
+    bottom: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.action,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceContainerLowest,
+  },
   avatarInitials: {
-    ...TYPOGRAPHY.headlineMd,
     color: COLORS.white,
-    fontWeight: '700',
   },
   profileInfo: {
+    minWidth: 0,
     flex: 1,
     justifyContent: 'center',
   },
   profileName: {
-    ...TYPOGRAPHY.bodyMd,
     color: COLORS.textPrimary,
-    fontWeight: '700',
     marginBottom: 2,
   },
   profileMeta: {
-    ...TYPOGRAPHY.bodyMedium,
     color: COLORS.emerald,
-    fontWeight: '600',
   },
   editHeaderBtn: {
-    padding: SPACING.sm,
+    width: 44,
+    height: 44,
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceContainerLow,
     justifyContent: 'center',
@@ -301,9 +439,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.outlineVariant,
   },
   sectionHeader: {
-    ...TYPOGRAPHY.bodyMedium,
     color: COLORS.textSecondary,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: SPACING.sm,
@@ -318,6 +454,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
+    minWidth: 0,
+    flex: 1,
+  },
+  rowCopy: {
+    minWidth: 0,
     flex: 1,
   },
   iconBox: {
@@ -329,12 +470,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   destructiveIconBox: {
-    backgroundColor: '#FFF2F2',
+    backgroundColor: COLORS.errorBackground,
   },
   rowTitle: {
-    ...TYPOGRAPHY.bodyMedium,
     color: COLORS.textPrimary,
-    fontWeight: '600',
+  },
+  rowValue: {
+    marginTop: 2,
+    color: COLORS.textSecondary,
   },
   destructiveText: {
     color: COLORS.error,
@@ -345,12 +488,10 @@ const styles = StyleSheet.create({
   },
   devCard: {
     borderColor: COLORS.error,
-    backgroundColor: '#FFF8EA',
+    backgroundColor: COLORS.warningBackground,
   },
   devNotice: {
-    ...TYPOGRAPHY.bodyMedium,
     color: COLORS.textSecondary,
-    lineHeight: 16,
     marginBottom: SPACING.md,
   },
   devResetBtn: {

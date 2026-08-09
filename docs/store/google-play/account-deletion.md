@@ -1,24 +1,22 @@
-# Google Play Account Deletion Declaration: FinPath
+# Google Play Account Deletion Declaration: Pocket Ahead
 
-Google Play requires that apps supporting account creation must provide both in-app account deletion and an external web page where deletion can be requested.
+## In-app deletion
 
----
+- **Path**: Profile > Privacy centre > Delete my account.
+- The user must type `DELETE` and confirm a destructive dialog.
+- The app calls the authenticated `delete-account` Supabase Edge Function.
+- The function requires a recent login, removes profile-picture objects and deletes the Supabase Auth user. Foreign-key cascades remove associated app records.
+- The app clears local financial data, notifications and the session after server deletion succeeds.
 
-## 1. In-App Deletion Flow
-* **Path**: Profile > Privacy Centre > Delete My Account.
-* **Flow**:
-  1. Warning page detailing that all income, expenses, debts, goals, and login credentials will be permanently purged.
-  2. Input verification: The user must type "DELETE" in capital letters to confirm.
-  3. Action: Calls the secure `delete_user_account()` PostgreSQL function, purges all rows cascadingly, deletes the auth user from `auth.users`, invalidates local sessions, and redirects to the sign-in screen.
+## External deletion request
 
----
+The canonical page is `docs/delete-account.html`. It:
 
-## 2. Web Portal Deletion Request
-A public, web-accessible page template must be hosted at:
-`https://YOUR-DOMAIN.com/delete-account`
+- Identifies **Pocket Ahead** and publisher **Kael Labs**.
+- Authenticates an existing user with email/password or Google through Supabase.
+- Requires an explicit `DELETE` confirmation.
+- Calls the same authenticated `delete-account` Edge Function used by the app.
+- Explains the data removed and the limited temporary retention of security logs and encrypted infrastructure backups.
+- Works without reinstalling Pocket Ahead.
 
-### Required Content on Web Page:
-* **Identification**: FinPath app developed by `[LEGAL ENTITY NAME]`.
-* **Data Deleted**: Complete profile metadata, onboarding assessment logs, transactions ledger, debts, goals, and active auth credentials.
-* **Retention Justification**: None. FinPath does not retain any financial information post-deletion.
-* **Request Submission**: A secure submission form where authenticated or verified users can request manual database purge.
+Before Play submission, publish the `docs` directory at a stable HTTPS URL, add that exact URL to the Supabase redirect allow list for Google OAuth, verify deletion with a disposable test account, and enter the URL in the Play Console Data safety form.

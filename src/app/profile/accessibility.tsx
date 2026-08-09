@@ -1,84 +1,78 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React from 'react';
+import { I18nManager, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
-import { Card } from '../../components/ui/Card';
+
+import AppText from '../../components/Text/AppText';
+import { Card, Icon } from '../../components/ui';
+import { COLORS, RADIUS, SPACING } from '../../constants/theme';
+
+const SECTIONS = [
+  { key: 'text', icon: 'text-outline' },
+  { key: 'reader', icon: 'ear-outline' },
+  { key: 'motion', icon: 'accessibility-outline' },
+] as const;
 
 export default function AccessibilityScreen() {
   const router = useRouter();
-  const [largeText, setLargeText] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
-  const [screenReaderOptimized, setScreenReaderOptimized] = useState(false);
-
-  const handleSave = () => {
-    Alert.alert('Success', 'Accessibility preferences saved successfully.', [
-      { text: 'OK', onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') }
-    ]);
-  };
-
-  const renderToggle = (
-    title: string,
-    description: string,
-    value: boolean,
-    onValueChange: (val: boolean) => void
-  ) => (
-    <View style={styles.toggleRow}>
-      <View style={styles.toggleText}>
-        <Text style={styles.toggleTitle}>{title}</Text>
-        <Text style={styles.toggleDesc}>{description}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: COLORS.outlineVariant, true: COLORS.primary }}
-        thumbColor={COLORS.white}
-      />
-    </View>
-  );
+  const { t } = useTranslation();
+  const title = t('support.accessibility.title');
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Accessibility</Text>
-        <View style={{ width: 40 }} />
+        <Pressable
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.accessibility.back')}
+        >
+          <Icon
+            name={I18nManager.isRTL ? 'arrow-forward' : 'arrow-back'}
+            size={24}
+            color={COLORS.primary}
+          />
+        </Pressable>
+        <AppText variant="sectionTitle" style={styles.headerTitle} role="heading" aria-level={1}>
+          {title}
+        </AppText>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>Visual Accessibility</Text>
-          {renderToggle(
-            'Large Font Sizes',
-            'Enlarge text sizes across main dashboard blocks and settings rows.',
-            largeText,
-            setLargeText
-          )}
-          <View style={styles.divider} />
-          {renderToggle(
-            'High Contrast Mode',
-            'Enforce high contrast color values on labels and button components.',
-            highContrast,
-            setHighContrast
-          )}
-        </Card>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        role="main"
+        accessibilityLabel={title}
+      >
+        <AppText variant="screenTitle" style={styles.overviewTitle} role="heading" aria-level={2}>
+          {t('support.accessibility.overviewTitle')}
+        </AppText>
+        <AppText variant="body" style={styles.overviewBody}>
+          {t('support.accessibility.overviewBody')}
+        </AppText>
 
-        <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>Screen Reader Settings</Text>
-          {renderToggle(
-            'Screen Reader Layout',
-            'Re-structure visual nodes for cleaner layout parsing and text narration.',
-            screenReaderOptimized,
-            setScreenReaderOptimized
-          )}
+        <Card style={styles.card} shadow="none">
+          {SECTIONS.map((section, index) => (
+            <View
+              key={section.key}
+              style={[styles.infoRow, index < SECTIONS.length - 1 && styles.divider]}
+            >
+              <View style={styles.iconBox}>
+                <Icon name={section.icon} size={22} color={COLORS.surfaceTint} />
+              </View>
+              <View style={styles.infoCopy}>
+                <AppText variant="bodySemiBold" style={styles.infoTitle} role="heading" aria-level={3}>
+                  {t(`support.accessibility.${section.key}Title`)}
+                </AppText>
+                <AppText variant="supporting" style={styles.infoBody}>
+                  {t(`support.accessibility.${section.key}Body`)}
+                </AppText>
+              </View>
+            </View>
+          ))}
         </Card>
-
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveBtnText}>Save Preferences</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -90,79 +84,82 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    height: 56,
     backgroundColor: COLORS.surfaceContainerLowest,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.outlineVariant,
   },
-  backBtn: {
-    padding: SPACING.xs,
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.round,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   headerTitle: {
-    ...TYPOGRAPHY.bodyMd,
+    flex: 1,
+    textAlign: 'center',
     color: COLORS.primary,
-    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 44,
   },
   scrollContent: {
-    padding: SPACING.md,
-    gap: SPACING.md,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    padding: SPACING.lg,
+  },
+  overviewTitle: {
+    color: COLORS.primary,
+  },
+  overviewBody: {
+    maxWidth: 620,
+    marginTop: SPACING.sm,
+    color: COLORS.textSecondary,
   },
   card: {
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surfaceContainerLowest,
+    marginTop: SPACING.xl,
+    padding: 0,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
   },
-  sectionHeader: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textSecondary,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: SPACING.md,
-  },
-  toggleRow: {
+  infoRow: {
+    minHeight: 96,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-  },
-  toggleText: {
-    flex: 1,
-    marginRight: SPACING.md,
-  },
-  toggleTitle: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  toggleDesc: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-    lineHeight: 14,
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    padding: SPACING.lg,
   },
   divider: {
-    height: 1,
-    backgroundColor: COLORS.outlineVariant,
-    marginVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.outlineVariant,
   },
-  saveBtn: {
-    backgroundColor: COLORS.primary,
-    height: 48,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
+  iconBox: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
-    marginTop: SPACING.sm,
+    justifyContent: 'center',
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.mintBackground,
   },
-  saveBtnText: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.white,
-    fontWeight: '700',
+  infoCopy: {
+    minWidth: 0,
+    flex: 1,
+  },
+  infoTitle: {
+    color: COLORS.textPrimary,
+  },
+  infoBody: {
+    marginTop: 4,
+    color: COLORS.textSecondary,
+    lineHeight: 21,
   },
 });

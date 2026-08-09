@@ -1,7 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ViewStyle, StyleProp } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, FadeIn, FadeOut, FadeInUp } from 'react-native-reanimated';
-import { COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../../constants/theme';
+import { View, StyleSheet, Pressable, ViewStyle, StyleProp } from 'react-native';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
+import AppText from '../Text/AppText';
 
 export interface CardProps {
   children: React.ReactNode;
@@ -15,7 +25,6 @@ export const Card: React.FC<CardProps> = ({ children, style, shadow = 'md' }) =>
       style={[
         styles.card,
         shadow !== 'none' && SHADOWS[shadow],
-        shadow !== 'none' && { borderWidth: 0 },
         style,
       ]}
     >
@@ -29,6 +38,7 @@ export interface SelectionCardProps {
   selected: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  icon?: React.ReactNode;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -38,28 +48,31 @@ export const SelectionCard: React.FC<SelectionCardProps> = ({
   selected,
   onPress,
   style,
+  icon,
 }) => {
-  const scale = useSharedValue(1);
   const pressedScale = useSharedValue(1);
-
-  React.useEffect(() => {
-    scale.value = withSpring(selected ? 1.02 : 1, { damping: 15, stiffness: 200 });
-  }, [selected, scale]);
+  const reduceMotion = useReducedMotion();
 
   const handlePressIn = () => {
-    pressedScale.value = withSpring(0.98, { damping: 10, stiffness: 300 });
+    if (reduceMotion) return;
+    pressedScale.value = withTiming(0.98, {
+      duration: 120,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    });
   };
 
   const handlePressOut = () => {
-    pressedScale.value = withSpring(1, { damping: 10, stiffness: 300 });
+    if (reduceMotion) return;
+    pressedScale.value = withTiming(1, {
+      duration: 150,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    });
   };
 
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { scale: scale.value * pressedScale.value }
-      ],
+      transform: [{ scale: pressedScale.value }],
     };
   });
 
@@ -77,19 +90,21 @@ export const SelectionCard: React.FC<SelectionCardProps> = ({
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
     >
-      <Text
+      {icon}
+      <AppText
+        variant="bodySemiBold"
         style={[
           styles.selectionText,
           selected && styles.selectedSelectionText,
         ]}
       >
         {label}
-      </Text>
+      </AppText>
       <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
         {selected && (
           <Animated.View
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(150)}
+            entering={reduceMotion ? undefined : FadeIn.duration(200)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(150)}
             style={styles.radioInner}
           />
         )}
@@ -111,6 +126,8 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   description,
   style,
 }) => {
+  const reduceMotion = useReducedMotion();
+
   const getCardStyle = (): ViewStyle => {
     switch (type) {
       case 'info':
@@ -127,13 +144,13 @@ export const AlertCard: React.FC<AlertCardProps> = ({
         };
       case 'warning':
         return {
-          backgroundColor: '#FFF8EA',
+          backgroundColor: COLORS.warningBackground,
           borderLeftColor: COLORS.warning,
           borderColor: 'rgba(245, 185, 66, 0.1)',
         };
       case 'danger':
         return {
-          backgroundColor: '#FFF2F2',
+          backgroundColor: COLORS.errorBackground,
           borderLeftColor: COLORS.error,
           borderColor: 'rgba(186, 26, 26, 0.1)',
         };
@@ -154,11 +171,13 @@ export const AlertCard: React.FC<AlertCardProps> = ({
 
   return (
     <Animated.View
-      entering={FadeInUp.duration(300)}
+      entering={reduceMotion ? undefined : FadeInUp.duration(220)}
       style={[styles.alertCard, getCardStyle(), style]}
     >
-      <Text style={[styles.alertTitle, { color: getTitleColor() }]}>{title}</Text>
-      <Text style={styles.alertDescription}>{description}</Text>
+      <AppText variant="bodySemiBold" style={[styles.alertTitle, { color: getTitleColor() }]}>
+        {title}
+      </AppText>
+      <AppText variant="supporting" style={styles.alertDescription}>{description}</AppText>
     </Animated.View>
   );
 };
@@ -168,6 +187,8 @@ export interface PressableCardProps {
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   shadow?: 'sm' | 'md' | 'lg' | 'none';
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export const PressableCard: React.FC<PressableCardProps> = ({
@@ -175,15 +196,26 @@ export const PressableCard: React.FC<PressableCardProps> = ({
   onPress,
   style,
   shadow = 'md',
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const scale = useSharedValue(1);
+  const reduceMotion = useReducedMotion();
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 12, stiffness: 250 });
+    if (reduceMotion) return;
+    scale.value = withTiming(0.97, {
+      duration: 120,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 250 });
+    if (reduceMotion) return;
+    scale.value = withTiming(1, {
+      duration: 160,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    });
   };
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -200,11 +232,12 @@ export const PressableCard: React.FC<PressableCardProps> = ({
       style={[
         styles.card,
         shadow !== 'none' && SHADOWS[shadow],
-        shadow !== 'none' && { borderWidth: 0 },
         style,
         animatedStyle,
       ]}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
     >
       {children}
     </AnimatedPressable>
@@ -213,31 +246,33 @@ export const PressableCard: React.FC<PressableCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surfaceContainerLowest,
+    backgroundColor: COLORS.cardSurface,
     borderRadius: RADIUS.lg,
-    padding: SPACING.md,
+    padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: 'rgba(7, 30, 61, 0.08)',
+    borderColor: COLORS.outlineVariant,
   },
   selectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACING.sm,
     justifyContent: 'space-between',
-    backgroundColor: COLORS.surfaceContainerLowest,
+    backgroundColor: COLORS.cardSurface,
     borderWidth: 1.5,
-    borderColor: 'rgba(7, 30, 61, 0.08)',
+    borderColor: COLORS.outlineVariant,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
-    height: 56,
+    minHeight: 72,
   },
   selectedSelectionCard: {
     borderColor: COLORS.emerald,
     backgroundColor: COLORS.mintBackground,
   },
   selectionText: {
-    ...TYPOGRAPHY.bodySemiBold,
     color: COLORS.textPrimary,
+    flex: 1,
+    paddingRight: SPACING.sm,
   },
   selectedSelectionText: {
     color: COLORS.darkEmerald,
@@ -268,11 +303,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   alertTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
     marginBottom: SPACING.xs,
   },
   alertDescription: {
-    ...TYPOGRAPHY.caption,
     color: COLORS.textPrimary,
   },
 });

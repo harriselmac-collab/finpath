@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -7,26 +7,57 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { cancelBillReminder, ensureNotificationPermission, rescheduleBillReminder } from '../../services/notifications/billReminders';
+import { syncDebtReminders, syncGoalReminders, syncMonthlyReviewReminder } from '../../services/notifications/preferenceReminders';
+import { NotificationPreferences, useNotificationPreferencesStore } from '../../store/notificationPreferencesStore';
+import { useBillsStore } from '../../store/billsStore';
+import { useGoalsStore } from '../../store/goalsStore';
+import { useOnboardingStore } from '../../store/onboardingStore';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
-  // Notification states
-  const [bills, setBills] = useState(true);
-  const [debts, setDebts] = useState(true);
-  const [savings, setSavings] = useState(true);
-  const [goals, setGoals] = useState(true);
-  const [weeklySummary, setWeeklySummary] = useState(true);
-  const [monthlyReview, setMonthlyReview] = useState(false);
-  const [culturalEvents, setCulturalEvents] = useState(true);
-  const [productUpdates, setProductUpdates] = useState(false);
-  const [marketing, setMarketing] = useState(false);
+  const preferences = useNotificationPreferencesStore();
+  const { updatePreference } = preferences;
 
-  // Security alerts is essential (always true)
-  const securityAlerts = true;
-
-  const handleSave = () => {
+  const handleSave = async () => {
+    const anyEnabled = preferences.bills || preferences.debts || preferences.goals || preferences.monthlyReview;
+    if (anyEnabled && !(await ensureNotificationPermission())) {
+      Alert.alert(t('common.error', 'Error'), t('settings.notifications.permissionDenied', 'Notifications are disabled in your device settings. Your preferences were saved, but reminders cannot be delivered.'));
+      return;
+    }
+    try {
+      const billState = useBillsStore.getState();
+      for (const bill of billState.bills) {
+        if (!preferences.bills) {
+          await cancelBillReminder(bill.notificationId);
+          billState.setNotificationId(bill.id, undefined);
+        } else {
+          const id = await rescheduleBillReminder(bill, {
+            title: t('bills.reminderTitle', 'Upcoming bill'),
+            body: t('bills.reminderBody', '{{title}} is due soon.', { title: bill.title }),
+          });
+          billState.setNotificationId(bill.id, id || undefined);
+        }
+      }
+      await syncDebtReminders(useOnboardingStore.getState().debts, preferences.debts, (debt) => ({
+        title: t('notifications.debtTitle', 'Debt payment due'),
+        body: t('notifications.debtBody', '{{type}} payment is due soon.', { type: debt.type }),
+      }));
+      await syncGoalReminders(useGoalsStore.getState().goals, preferences.goals, (goal) => ({
+        title: t('notifications.goalTitle', 'Goal deadline approaching'),
+        body: t('notifications.goalBody', '{{name}} is due soon.', { name: goal.name }),
+      }));
+      await syncMonthlyReviewReminder(
+        preferences.monthlyReview,
+        t('notifications.monthlyTitle', 'Monthly budget review'),
+        t('notifications.monthlyBody', 'Review planned and actual spending for the new month.'),
+      );
+    } catch {
+      Alert.alert(t('common.error', 'Error'), t('settings.notifications.scheduleFailed', 'Preferences were saved, but one or more reminders could not be scheduled.'));
+      return;
+    }
     Alert.alert(t('common.success', 'Success'), t('common.saved', 'Notification preferences saved successfully.'), [
       { text: t('common.ok', 'OK'), onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') }
     ]);
@@ -48,11 +79,13 @@ export default function NotificationsScreen() {
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
-        trackColor={{ false: COLORS.outlineVariant, true: COLORS.primary }}
+        trackColor={{ false: COLORS.outlineVariant, true: COLORS.secondary }}
         thumbColor={COLORS.white}
       />
     </View>
   );
+
+  const setPreference = (key: keyof NotificationPreferences) => (value: boolean) => updatePreference(key, value);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,94 +99,39 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Essential Alerts */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>{t('settings.notifications.securityHeader')}</Text>
-          {renderToggle(
-            t('settings.notifications.securityTitle'),
-            t('settings.notifications.securityDesc'),
-            securityAlerts,
-            () => {},
-            true
-          )}
-        </Card>
-
         {/* Financial Alerts */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>{t('settings.notifications.financialHeader')}</Text>
           {renderToggle(
             t('settings.notifications.billsTitle'),
             t('settings.notifications.billsDesc'),
-            bills,
-            setBills
+            preferences.bills,
+            setPreference('bills')
           )}
           <View style={styles.divider} />
           {renderToggle(
             t('settings.notifications.debtsTitle'),
             t('settings.notifications.debtsDesc'),
-            debts,
-            setDebts
-          )}
-          <View style={styles.divider} />
-          {renderToggle(
-            t('settings.notifications.savingsTitle'),
-            t('settings.notifications.savingsDesc'),
-            savings,
-            setSavings
+            preferences.debts,
+            setPreference('debts')
           )}
           <View style={styles.divider} />
           {renderToggle(
             t('settings.notifications.goalsTitle'),
             t('settings.notifications.goalsDesc'),
-            goals,
-            setGoals
+            preferences.goals,
+            setPreference('goals')
           )}
         </Card>
 
-        {/* Summaries & Reviews */}
+        {/* Monthly review reminder */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>{t('settings.notifications.reportsHeader')}</Text>
           {renderToggle(
-            t('settings.notifications.weeklyTitle'),
-            t('settings.notifications.weeklyDesc'),
-            weeklySummary,
-            setWeeklySummary
-          )}
-          <View style={styles.divider} />
-          {renderToggle(
             t('settings.notifications.monthlyTitle'),
             t('settings.notifications.monthlyDesc'),
-            monthlyReview,
-            setMonthlyReview
-          )}
-        </Card>
-
-        {/* Cultural & Religious Preferences */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>{t('settings.notifications.culturalHeader')}</Text>
-          {renderToggle(
-            t('settings.notifications.culturalTitle'),
-            t('settings.notifications.culturalDesc'),
-            culturalEvents,
-            setCulturalEvents
-          )}
-        </Card>
-
-        {/* Marketing Preferences */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>{t('settings.notifications.marketingHeader')}</Text>
-          {renderToggle(
-            t('settings.notifications.productTitle'),
-            t('settings.notifications.productDesc'),
-            productUpdates,
-            setProductUpdates
-          )}
-          <View style={styles.divider} />
-          {renderToggle(
-            t('settings.notifications.marketingTitle'),
-            t('settings.notifications.marketingDesc'),
-            marketing,
-            setMarketing
+            preferences.monthlyReview,
+            setPreference('monthlyReview')
           )}
         </Card>
 

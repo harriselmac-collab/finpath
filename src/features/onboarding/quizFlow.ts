@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SUPPORTED_CURRENCIES } from '../../constants/currencies';
 
 export interface QuestionOption {
   value: string;
@@ -18,6 +19,105 @@ export interface QuestionConfig {
 }
 
 export const QUIZ_QUESTIONS: QuestionConfig[] = [
+  {
+    id: 'language', section: 'localization', titleKey: 'onboarding.minimum.language.title',
+    subtitleKey: 'onboarding.minimum.language.subtitle', type: 'select', required: true,
+    options: [
+      { value: 'en', labelKey: 'English' }, { value: 'fr', labelKey: 'Français' },
+      { value: 'ar', labelKey: 'العربية' }, { value: 'es', labelKey: 'Español' },
+      { value: 'de', labelKey: 'Deutsch' }, { value: 'pt', labelKey: 'Português' },
+      { value: 'it', labelKey: 'Italiano' }, { value: 'tr', labelKey: 'Türkçe' },
+      { value: 'zh', labelKey: '中文' },
+    ],
+  },
+  {
+    id: 'country', section: 'localization', titleKey: 'onboarding.minimum.country.title',
+    subtitleKey: 'onboarding.minimum.country.subtitle', type: 'select', required: true,
+  },
+  {
+    id: 'currency', section: 'localization', titleKey: 'onboarding.minimum.currency.title',
+    subtitleKey: 'onboarding.minimum.currency.subtitle', type: 'select', required: true,
+    options: SUPPORTED_CURRENCIES.map(({ code, name }) => ({ value: code, labelKey: name })),
+  },
+  {
+    id: 'availableBalance', section: 'essentials', titleKey: 'onboarding.minimum.available.title',
+    subtitleKey: 'onboarding.minimum.available.subtitle', type: 'currency', required: true,
+  },
+  {
+    id: 'incomeFrequency', section: 'essentials', titleKey: 'onboarding.minimum.frequency.title',
+    subtitleKey: 'onboarding.minimum.frequency.subtitle', type: 'select', required: true,
+    options: ['weekly', 'everyTwoWeeks', 'twiceMonthly', 'monthly', 'irregular', 'oneTime']
+      .map((value) => ({ value, labelKey: `onboarding.minimum.frequency.${value}` })),
+  },
+  {
+    id: 'payday', section: 'essentials', titleKey: 'onboarding.minimum.payday.title',
+    subtitleKey: 'onboarding.minimum.payday.subtitle', type: 'number', required: true,
+    showIf: (answers) => answers.incomeFrequency === 'monthly',
+  },
+  {
+    id: 'firstPayday', section: 'essentials', titleKey: 'onboarding.minimum.twiceMonthly.firstTitle',
+    subtitleKey: 'onboarding.minimum.twiceMonthly.subtitle', type: 'number', required: true,
+    showIf: (answers) => answers.incomeFrequency === 'twiceMonthly',
+  },
+  {
+    id: 'secondPayday', section: 'essentials', titleKey: 'onboarding.minimum.twiceMonthly.secondTitle',
+    subtitleKey: 'onboarding.minimum.twiceMonthly.subtitle', type: 'number', required: true,
+    showIf: (answers) => answers.incomeFrequency === 'twiceMonthly',
+  },
+  {
+    id: 'incomeDateCertainty', section: 'essentials', titleKey: 'onboarding.minimum.certainty.title',
+    subtitleKey: 'onboarding.minimum.certainty.subtitle', type: 'select', required: true,
+    options: ['exact', 'approximate', 'notSure']
+      .map((value) => ({ value, labelKey: `onboarding.minimum.certainty.${value}` })),
+    showIf: (answers) => ['irregular', 'oneTime'].includes(answers.incomeFrequency),
+  },
+  {
+    id: 'nextIncomeDate', section: 'essentials', titleKey: 'onboarding.minimum.nextIncomeDate.title',
+    subtitleKey: 'onboarding.minimum.nextIncomeDate.subtitle', type: 'date', required: true,
+    showIf: (answers) => ['weekly', 'everyTwoWeeks'].includes(answers.incomeFrequency)
+      || ['exact', 'approximate'].includes(answers.incomeDateCertainty),
+  },
+  {
+    id: 'mainIncome', section: 'essentials', titleKey: 'onboarding.minimum.income.title',
+    subtitleKey: 'onboarding.minimum.income.subtitle', type: 'currency', required: true,
+  },
+  {
+    id: 'essentialBillsDue', section: 'essentials', titleKey: 'onboarding.minimum.bills.title',
+    subtitleKey: 'onboarding.minimum.bills.subtitle', type: 'currency', required: true,
+  },
+  {
+    id: 'debtMinimumDue', section: 'essentials', titleKey: 'onboarding.minimum.debt.title',
+    subtitleKey: 'onboarding.minimum.debt.subtitle', type: 'currency', required: true,
+  },
+  {
+    id: 'upcomingFlexibleSpending', section: 'essentials', titleKey: 'onboarding.minimum.flexible.title',
+    subtitleKey: 'onboarding.minimum.flexible.subtitle', type: 'currency', required: true,
+  },
+  {
+    id: 'overdueCommitments', section: 'essentials', titleKey: 'onboarding.minimum.overdue.title',
+    subtitleKey: 'onboarding.minimum.overdue.subtitle', type: 'yes-no', required: true,
+  },
+  {
+    id: 'protectedBuffer', section: 'essentials', titleKey: 'onboarding.minimum.buffer.title',
+    subtitleKey: 'onboarding.minimum.buffer.subtitle', type: 'currency', required: false,
+  },
+  {
+    id: 'savingsGoalAmount', section: 'essentials', titleKey: 'onboarding.minimum.goal.title',
+    subtitleKey: 'onboarding.minimum.goal.subtitle', type: 'currency', required: false,
+  },
+  {
+    id: 'annualExpenseDue', section: 'essentials', titleKey: 'onboarding.minimum.annual.title',
+    subtitleKey: 'onboarding.minimum.annual.subtitle', type: 'currency', required: false,
+  },
+  {
+    id: 'reminderPreference', section: 'essentials', titleKey: 'onboarding.minimum.reminder.title',
+    subtitleKey: 'onboarding.minimum.reminder.subtitle', type: 'select', required: false,
+    options: ['dueDates', 'weekly', 'none']
+      .map((value) => ({ value, labelKey: `onboarding.minimum.reminder.${value}` })),
+  },
+];
+
+export const PROGRESSIVE_PROFILE_QUESTIONS: QuestionConfig[] = [
   // SECTION: Personal Profile
   {
     id: 'preferredName',
@@ -58,11 +158,7 @@ export const QUIZ_QUESTIONS: QuestionConfig[] = [
     subtitleKey: 'onboarding.questions.currency.subtitle',
     type: 'select',
     required: true,
-    options: [
-      { value: 'MAD', labelKey: 'Moroccan Dirham (MAD)' },
-      { value: 'EUR', labelKey: 'Euro (EUR)' },
-      { value: 'USD', labelKey: 'US Dollar (USD)' },
-    ],
+    options: SUPPORTED_CURRENCIES.map(({ code, name }) => ({ value: code, labelKey: name })),
   },
   {
     id: 'ageRange',
@@ -137,6 +233,15 @@ export const QUIZ_QUESTIONS: QuestionConfig[] = [
       { value: 'fixed', labelKey: 'Fixed' },
       { value: 'irregular', labelKey: 'Irregular' },
     ],
+    showIf: (answers) => answers.hasIncome === true,
+  },
+  {
+    id: 'nextIncomeDate',
+    section: 'income',
+    titleKey: 'onboarding.questions.nextIncomeDate.title',
+    subtitleKey: 'onboarding.questions.nextIncomeDate.subtitle',
+    type: 'date',
+    required: true,
     showIf: (answers) => answers.hasIncome === true,
   },
   {
@@ -521,6 +626,52 @@ export const getActiveQuestions = (answers: Record<string, any>): QuestionConfig
   });
 };
 
+export const getResumeQuestionStep = (
+  questions: QuestionConfig[],
+  answers: Record<string, any>,
+  requestedStep: number,
+): number => {
+  if (questions.length === 0) return 0;
+
+  const firstIncomplete = questions.findIndex((question) => {
+    if (!question.required) return false;
+    const value = answers[question.id];
+    return value === undefined || value === null || value === '';
+  });
+  const validRequestedStep = Number.isInteger(requestedStep)
+    && requestedStep >= 0
+    && requestedStep < questions.length;
+
+  if (firstIncomplete >= 0 && (!validRequestedStep || requestedStep > firstIncomplete)) {
+    return firstIncomplete;
+  }
+  return validRequestedStep ? requestedStep : 0;
+};
+
+export const EXPENSE_REVIEW_VERSION = 2;
+
+export const hasRequiredMonthlyPlanInputs = (
+  answers: Record<string, any>,
+  debts: unknown[],
+): boolean => {
+  const requiredAnswersComplete = getActiveQuestions(answers)
+    .filter((question) => question.required)
+    .every((question) => {
+      const value = answers[question.id];
+      return value !== undefined && value !== null && value !== '';
+    });
+
+  return requiredAnswersComplete && (answers.hasDebt !== true || debts.length > 0);
+};
+
+export const isMonthlyPlanReady = (
+  answers: Record<string, any>,
+  debts: unknown[],
+  onboardingCompleted: boolean,
+): boolean => {
+  return onboardingCompleted && hasRequiredMonthlyPlanInputs(answers, debts);
+};
+
 export const getQuestionSchema = (question: QuestionConfig) => {
   if (!question.required) {
     return z.any().optional();
@@ -530,6 +681,12 @@ export const getQuestionSchema = (question: QuestionConfig) => {
     case 'text':
       return z.string().min(1, { message: 'This field is required' });
     case 'number':
+      if (['payday', 'firstPayday', 'secondPayday'].includes(question.id)) {
+        return z.preprocess(
+          (val) => (val === '' || val === undefined ? undefined : Number(val)),
+          z.number({ invalid_type_error: 'Must be a number' }).int().min(1, { message: 'Choose a day from 1 to 31' }).max(31, { message: 'Choose a day from 1 to 31' }),
+        );
+      }
       return z.preprocess(
         (val) => (val === '' || val === undefined ? undefined : Number(val)),
         z.number({ invalid_type_error: 'Must be a number' }).min(0, { message: 'Must be positive' })

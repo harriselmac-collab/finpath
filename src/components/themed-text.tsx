@@ -1,6 +1,6 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getFontFamily, FontWeight } from '../utils/typography';
 
@@ -49,43 +49,51 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
-    fontFamily: 'Changa_400Regular',
+    fontFamily: 'Cairo',
+    fontWeight: '400',
     fontSize: 14,
     lineHeight: 20,
   },
   smallBold: {
-    fontFamily: 'Changa_700Bold',
+    fontFamily: 'Cairo',
+    fontWeight: '700',
     fontSize: 14,
     lineHeight: 20,
   },
   default: {
-    fontFamily: 'Changa_500Medium',
+    fontFamily: 'Cairo',
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
   },
   title: {
-    fontFamily: 'Changa_700Bold',
+    fontFamily: 'Cairo',
+    fontWeight: '700',
     fontSize: 48,
     lineHeight: 52,
   },
   subtitle: {
-    fontFamily: 'Changa_600SemiBold',
+    fontFamily: 'Cairo',
+    fontWeight: '600',
     fontSize: 32,
     lineHeight: 44,
   },
   link: {
-    fontFamily: 'Changa_400Regular',
+    fontFamily: 'Cairo',
+    fontWeight: '400',
     lineHeight: 30,
     fontSize: 14,
   },
   linkPrimary: {
-    fontFamily: 'Changa_600SemiBold',
+    fontFamily: 'Cairo',
+    fontWeight: '600',
     lineHeight: 30,
     fontSize: 14,
     color: '#3c87f7',
   },
   code: {
-    fontFamily: 'Changa_400Regular',
+    fontFamily: 'Cairo',
+    fontWeight: '400',
     fontSize: 12,
   },
 });

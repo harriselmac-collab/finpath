@@ -24,15 +24,15 @@
     "chooseLanguage": "Choisir la langue de l'application"
   },
   "welcome": {
-    "title": "Bienvenue sur FinPath",
-    "subtitle": "Votre compagnon d'épargne et de finances personnelles propulsé par l'IA",
-    "description": "FinPath n'est pas un simple suivi de dépenses. Nous apprenons à vous connaître, comprenons votre situation de vie et créons un parcours financier réaliste et honnête qui fonctionne vraiment.",
+    "title": "Bienvenue sur Pocket Ahead",
+    "subtitle": "Un plan clair pour votre argent, vos factures, vos objectifs et vos dépenses quotidiennes",
+    "description": "Pocket Ahead n'est pas un simple suivi de dépenses. Nous apprenons à vous connaître, comprenons votre situation de vie et créons un parcours financier réaliste et honnête qui fonctionne vraiment.",
     "getStarted": "Commencer",
     "signIn": "J'ai déjà un compte",
-    "privacyNotice": "Vos données sont privées et stockées de manière sécurisée. Le traitement par l'IA est anonymisé."
+    "privacyNotice": "Vos données sont privées et stockées de manière sécurisée."
   },
   "auth": {
-    "title": "Accès FinPath",
+    "title": "Pocket Ahead",
     "signIn": "Se connecter",
     "signUp": "S'inscrire",
     "email": "Adresse email",
@@ -42,7 +42,21 @@
     "needAccount": "Pas de compte ? S'inscrire",
     "haveAccount": "Déjà un compte ? Se connecter",
     "mockLogin": "Accéder à l'intégration (Mock)",
-    "googleSignIn": "Continuer avec Google"
+    "googleSignIn": "Continuer avec Google",
+    "signUpSubtitle": "Créez votre compte sécurisé",
+    "signInSubtitle": "Connectez-vous pour accéder à votre tableau de bord",
+    "requiredFields": "Veuillez remplir tous les champs obligatoires.",
+    "emailRequired": "L’adresse e-mail est obligatoire.",
+    "passwordRequired": "Le mot de passe est obligatoire.",
+    "passwordMismatch": "Les mots de passe ne correspondent pas.",
+    "serviceUnavailable": "L’authentification est actuellement indisponible. Réessayez plus tard.",
+    "signInFailed": "La connexion a échoué. Vérifiez vos informations et réessayez.",
+    "googleTokenMissing": "Google n’a pas renvoyé de jeton de connexion valide.",
+    "verificationTitle": "Vérification envoyée",
+    "verificationMessage": "Consultez votre messagerie pour vérifier votre compte avant de vous connecter.",
+    "simulationButton": "Simulation de développement",
+    "simulationTitle": "Session de développement simulée",
+    "simulationNotice": "Il s’agit d’une session locale de développement. Elle n’est liée à aucun compte réel et les données ne sont pas synchronisées."
   },
   "onboarding": {
     "progress": "Question {{current}} sur {{total}}",
@@ -104,6 +118,10 @@
       "incomeType": {
         "title": "Ce revenu est-il fixe ou irrégulier ?",
         "subtitle": "Fixe signifie un salaire stable ; irrégulier signifie freelance, saisonnier, etc."
+      },
+      "nextIncomeDate": {
+        "title": "Quand prévoyez-vous votre prochain revenu ?",
+        "subtitle": "Pocket Ahead utilise cette date pour calculer combien de temps votre argent disponible doit durer."
       },
       "hasSecondIncome": {
         "title": "Avez-vous une deuxième source de revenus ?",
@@ -319,7 +337,6 @@
       "accessibility": "Accessibilité",
       "security": "Sécurité",
       "privacyCentre": "Centre de confidentialité",
-      "aiConsent": "Consentement IA et données",
       "exportData": "Exporter mes données",
       "deleteAccount": "Supprimer mon compte",
       "helpSupport": "Aide et support",
@@ -329,7 +346,6 @@
       "privacyPolicy": "Politique de confidentialité",
       "termsUse": "Conditions d'utilisation",
       "financialDisclaimer": "Clause de non-responsabilité financière",
-      "aiDisclaimer": "Clause de non-responsabilité IA",
       "licenses": "Licences open-source",
       "appInfo": "Infos application et système"
     }
@@ -375,7 +391,7 @@
       "culturalDesc": "Rappels doux pour les prévisions de dépenses spécifiques (ex: Ramadan, Aïd).",
       "marketingHeader": "Mises à jour et marketing",
       "productTitle": "Mises à jour du produit",
-      "productDesc": "Restez informé des nouvelles fonctionnalités et améliorations de FinPath.",
+      "productDesc": "Restez informé des nouvelles fonctionnalités et améliorations de Pocket Ahead.",
       "marketingTitle": "Offres marketing",
       "marketingDesc": "Promotions, articles financiers et conseils généraux.",
       "save": "Enregistrer les préférences"
@@ -400,10 +416,10 @@
     },
     "privacy": {
       "title": "Centre de confidentialité",
-      "policyHeader": "Politique de données FinPath",
+      "policyHeader": "Politique de données Pocket Ahead",
       "policyDesc": "Nous traitons vos données financières uniquement pour construire vos budgets, analyser vos dettes et projeter vos objectifs d'épargne. Nous ne vendons pas vos données.",
       "sensitiveHeader": "Données personnelles sensibles (Catégorie spéciale GDPR)",
-      "sensitiveDesc": "FinPath peut utiliser ces informations facultatives pour suggérer des dépenses culturelles ou religieuses. Elles ne seront pas utilisées pour la publicité ou pour déterminer votre éligibilité financière. Vous pouvez les retirer à tout moment.",
+      "sensitiveDesc": "Pocket Ahead peut utiliser ces informations facultatives pour suggérer des dépenses culturelles ou religieuses. Elles ne seront pas utilisées pour la publicité ou pour déterminer votre éligibilité financière. Vous pouvez les retirer à tout moment.",
       "culturalTitle": "Activer le contexte culturel",
       "culturalDesc": "Consentement explicite pour l'utilisation des suggestions d'événements religieux/culturels",
       "focusHeader": "Choisir le focus culturel :",
@@ -418,34 +434,14 @@
       "marketingTitle": "Renseignements marketing",
       "marketingDesc": "Recevoir des suggestions sur les produits de nos partenaires ou les mises à jour",
       "rightsHeader": "Droits de gestion des données",
-      "aiConsent": "Consentement IA et données",
       "exportData": "Exporter mes données (JSON)",
       "deleteAccount": "Supprimer mon compte",
       "save": "Enregistrer les paramètres"
     },
-    "aiConsent": {
-      "title": "Consentement IA et données",
-      "intelligenceHeader": "Détails de FinPath Intelligence",
-      "intelligenceDesc": "Notre analyse IA fournit des explications conversationnelles sur la santé de votre budget, en signalant les risques de déficit et les conseils d'épargne.",
-      "bullet1": "Les calculs (sommes, objectifs) sont calculés par un code déterministe, pas par l'IA.",
-      "bullet2": "Nous n'envoyons jamais de mots de passe, de coordonnées bancaires ou d'adresses au modèle d'IA.",
-      "bullet3": "Les requêtes IA sont acheminées via les API Google Gemini conformément aux conditions de conformité de Google Cloud.",
-      "preferencesHeader": "Préférences IA",
-      "insightsTitle": "Activer les analyses IA",
-      "insightsDesc": "Autoriser FinPath à générer des résumés financiers et des recommandations personnalisés avec Gemini IA.",
-      "historyTitle": "Enregistrer l'historique des analyses",
-      "historyDesc": "Stocker les anciennes analyses dans votre base de données pour les consulter à tout moment.",
-      "notesTitle": "Inclure les notes personnalisées",
-      "notesDesc": "Autoriser le fournisseur d'IA à inspecter les notes de description facultatives jointes à vos transactions ou dettes pour le contexte.",
-      "manageHeader": "Gérer les données d'analyse",
-      "manageDesc": "Vous pouvez supprimer l'historique des analyses précédemment générées de votre compte sécurisé.",
-      "deleteBtn": "Supprimer l'historique des analyses IA",
-      "save": "Enregistrer les paramètres IA"
-    },
     "exportData": {
       "title": "Exporter mes données",
       "portabilityHeader": "Droit à la portabilité (GDPR Art. 20)",
-      "portabilityDesc": "Vous avez le droit de recevoir toutes les données personnelles fournies à FinPath dans un format structuré, couramment utilisé et lisible par machine.",
+      "portabilityDesc": "Vous avez le droit de recevoir toutes les données personnelles fournies à Pocket Ahead dans un format structuré, couramment utilisé et lisible par machine.",
       "portabilityDesc2": "Appuyer sur le bouton d'exportation ci-dessous compilera en toute sécurité vos paramètres, réponses d'intégration, dettes, objectifs d'épargne, transactions et historique de consentement.",
       "generateBtn": "Générer l'exportation des données",
       "readyHeader": "Exportation prête",
@@ -456,12 +452,12 @@
     "deleteAccount": {
       "title": "Supprimer le compte",
       "purgeHeader": "Avertissement : Purge permanente",
-      "purgeDesc": "L'initiation de la suppression du compte supprimera toutes les informations associées à votre profil des serveurs de FinPath :",
+      "purgeDesc": "L'initiation de la suppression du compte supprimera toutes les informations associées à votre profil des serveurs de Pocket Ahead :",
       "bullet1": "Toutes les évaluations et réponses d'intégration.",
       "bullet2": "Tous les revenus, factures récurrentes et dépenses annuelles.",
       "bullet3": "Tous les objectifs d'épargne et historiques de transactions.",
       "bullet4": "Tous les identifiants de connexion et sessions actives.",
-      "purgeDesc2": "FinPath ne conserve aucune donnée financière après suppression. Une fois l'action complétée, vos accès expireront immédiatement.",
+      "purgeDesc2": "Pocket Ahead ne conserve aucune donnée financière après suppression. Une fois l'action complétée, vos accès expireront immédiatement.",
       "confirmHeader": "Confirmer la suppression du compte",
       "confirmDesc": "Pour continuer, veuillez saisir **DELETE** en majuscules dans le champ ci-dessous.",
       "confirmPlaceholder": "Saisir DELETE ici",
@@ -471,8 +467,8 @@
       "title": "Aide & Support",
       "detailsHeader": "Détails du support",
       "detailsDesc": "Besoin d'aide ou un commentaire ? Soumettez un ticket de support ou contactez notre équipe de développement.",
-      "detailsDesc2": "Temps de réponse standard : **[RESPONSE TIME EXPECTATION]** (généralement 24 heures).",
-      "detailsDesc3": "E-mail de support : **[SUPPORT EMAIL]**",
+      "detailsDesc2": "La disponibilité de l’assistance et les délais de réponse peuvent varier.",
+      "detailsDesc3": "Utilisez Contacter l’assistance ou Signaler un problème pour ouvrir votre application e-mail.",
       "topicsHeader": "Sujets d'aide",
       "faqRow": "Lire la FAQ",
       "contactRow": "Formulaire de contact",
@@ -480,13 +476,13 @@
     },
     "about": {
       "title": "Infos application et système",
-      "infoHeader": "Informations FinPath",
+      "infoHeader": "Informations Pocket Ahead",
       "appName": "Nom de l'application",
       "appVersion": "Version de l'application",
       "buildNum": "Numéro de build",
       "apiLevel": "Niveau d'API ciblé",
       "devHeader": "Développeur",
-      "devDesc": "FinPath est détenu et développé par **[LEGAL ENTITY NAME]**. Tous les calculs, analyses IA et journaux de dettes sont traités conformément au RGPD."
+      "devDesc": "Pocket Ahead est publié par Kael Labs. Les calculs financiers utilisent des règles de planification déterministes fondées sur les informations saisies."
     }
   },
   "tabs": {
@@ -494,7 +490,7 @@
     "plan": "Plan",
     "history": "Historique",
     "profile": "Profil",
-    "quickAction": "Action Rapide",
+    "quickAction": "Actions rapides",
     "addExpense": "Ajouter dépense",
     "addIncome": "Ajouter revenu",
     "addBill": "Ajouter facture",
@@ -502,7 +498,7 @@
     "addGoal": "Ajouter objectif"
   },
   "dashboard": {
-    "title": "FinPath",
+    "title": "Pocket Ahead",
     "availableThisMonth": "Disponible ce mois",
     "safeDailySpending": "Dépense quotidienne sûre",
     "savingsProgress": "Progrès de l'épargne",
@@ -541,7 +537,7 @@
       "debtText": "Les mensualités de dettes consomment ",
       "debtSub": " de vos revenus mensuels. Pensez à rembourser en priorité les taux élevés.",
       "debtAction": "Voir détails",
-      "intelligenceTitle": "Intelligence FinPath",
+      "intelligenceTitle": "Intelligence Pocket Ahead",
       "intelligenceText": "Vous êtes en bonne voie d'épargner ",
       "intelligenceSub": " de plus que le mois dernier. Un budget régulier renforce votre sécurité.",
       "intelligenceAction": "Voir l'analyse"
@@ -576,6 +572,7 @@
     "close": "Fermer",
     "add": "+ Ajouter",
     "searchPlaceholder": "Rechercher...",
+    "clearSearch": "Effacer la recherche",
     "quickAddPlaceholder": "Ajout rapide (ex: café 45 ou loyer 2500)...",
     "quickAddButton": "Ajouter",
     "readyToAdd": "Prêt à ajouter : {{name}} ({{category}}) - {{amount}}",
@@ -597,6 +594,17 @@
       "savings": "Épargne"
     },
     "noTransactions": "Aucune transaction trouvée",
-    "noTransactionsDesc": "Essayez d'ajuster votre recherche ou ajoutez une transaction."
+    "noTransactionsDesc": "Essayez d'ajuster votre recherche ou ajoutez une transaction.",
+    "namePlaceholder": "p. ex. Facture d’électricité",
+    "categoryPlaceholder": "p. ex. Services ou salaire",
+    "validDetails": "Saisissez un nom et un montant positif.",
+    "discardTitle": "Abandonner la transaction ?",
+    "discardMessage": "Les informations saisies seront perdues.",
+    "keepEditing": "Continuer la saisie",
+    "discard": "Abandonner",
+    "quickAddError": "Saisissez un nom et un montant, par exemple « café 45 ».",
+    "deleteTitle": "Supprimer la transaction ?",
+    "deleteMessage": "Cette transaction sera définitivement supprimée.",
+    "delete": "Supprimer"
   }
 }

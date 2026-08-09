@@ -1,4 +1,4 @@
-# App Store Account Deletion: FinPath
+# App Store Account Deletion: Pocket Ahead
 
 App Store account deletion documentation.
 

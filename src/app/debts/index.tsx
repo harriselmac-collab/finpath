@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// eslint-disable-next-line import/no-unresolved
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
@@ -11,9 +10,14 @@ import { Button } from '../../components/ui/Button';
 import { useOnboardingStore, DebtInfo } from '../../store/onboardingStore';
 import { calculateFinancialProfile } from '../../features/financial-engine/engine';
 import { formatCurrency } from '../../utils/currency';
+import AppText from '../../components/Text/AppText';
+import { useTranslation } from 'react-i18next';
+import { isValidDebt, parseFinancialAmount } from '../../utils/financialValidation';
 
 export default function DebtsScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage || i18n.language;
   const { answers, debts, addDebt, removeDebt } = useOnboardingStore();
   const currencySymbol = answers['currency'] || 'MAD';
 
@@ -34,14 +38,21 @@ export default function DebtsScreen() {
       Alert.alert('Error', 'Please fill in all debt fields');
       return;
     }
+    const totalAmount = parseFinancialAmount(debtTotal, currencySymbol);
+    const minimumPayment = parseFinancialAmount(debtMinPayment, currencySymbol);
+    const interestRate = Number(debtInterest);
     const newDebt: DebtInfo = {
       type: debtType,
-      totalAmount: Number(debtTotal),
-      minimumPayment: Number(debtMinPayment),
-      interestRate: Number(debtInterest),
+      totalAmount: totalAmount ?? Number.NaN,
+      minimumPayment: minimumPayment ?? Number.NaN,
+      interestRate,
       dueDate: debtDue,
       isOverdue: !!debtOverdue,
     };
+    if (!debtType.trim() || !isValidDebt(newDebt)) {
+      Alert.alert(t('common.error', 'Error'), t('validation.invalidDebt', 'Check the balance, minimum payment, interest rate (0–100), and due day (1–31).'));
+      return;
+    }
     addDebt(newDebt);
     setDebtTotal('');
     setDebtMinPayment('');
@@ -77,7 +88,7 @@ export default function DebtsScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Debt Accounts</Text>
+        <AppText variant="h3" style={styles.title}>Debt Accounts</AppText>
         <TouchableOpacity style={styles.addTrigger} onPress={() => setShowAdder(!showAdder)}>
           <Ionicons name={showAdder ? 'close' : 'add'} size={24} color={COLORS.primary} />
         </TouchableOpacity>
@@ -86,28 +97,28 @@ export default function DebtsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Debt Pressure Metrics Card */}
         <Card style={styles.metricsCard}>
-          <Text style={styles.metricLabel}>Overall Debt Pressure</Text>
-          <Text style={[styles.metricVal, { color: getPressureColor() }]}>
+          <AppText variant="caption" style={styles.metricLabel}>Overall Debt Pressure</AppText>
+          <AppText variant="h1" style={[styles.metricVal, { color: getPressureColor() }]}>
             {profile.debtPressure.toUpperCase()}
-          </Text>
-          <Text style={styles.metricSub}>
+          </AppText>
+          <AppText variant="caption" style={styles.metricSub}>
             Minimum debt payments consume {Math.round(profile.debtPressureRatio * 100)}% of your total income.
-          </Text>
+          </AppText>
           
           <View style={styles.divider} />
           
           <View style={styles.numbersRow}>
             <View style={styles.numBox}>
-              <Text style={styles.numLabel}>Monthly Min Payment</Text>
-              <Text style={styles.numVal}>
-                {formatCurrency(profile.minimumMonthlyDebtPayments, currencySymbol)}
-              </Text>
+              <AppText variant="caption" style={styles.numLabel}>Monthly Min Payment</AppText>
+              <AppText variant="bodySemiBold" style={styles.numVal}>
+                {formatCurrency(profile.minimumMonthlyDebtPayments, currencySymbol, locale)}
+              </AppText>
             </View>
             <View style={styles.numBox}>
-              <Text style={styles.numLabel}>Total Debts Tracked</Text>
-              <Text style={styles.numVal}>
-                {formatCurrency(debts.reduce((sum, d) => sum + d.totalAmount, 0), currencySymbol)}
-              </Text>
+              <AppText variant="caption" style={styles.numLabel}>Total Debts Tracked</AppText>
+              <AppText variant="bodySemiBold" style={styles.numVal}>
+                {formatCurrency(debts.reduce((sum, d) => sum + d.totalAmount, 0), currencySymbol, locale)}
+              </AppText>
             </View>
           </View>
         </Card>
@@ -115,26 +126,26 @@ export default function DebtsScreen() {
         {/* Add debt form */}
         {showAdder && (
           <Card style={styles.adderCard}>
-            <Text style={styles.adderTitle}>Add Debt Line</Text>
+            <AppText variant="bodySemiBold" style={styles.adderTitle}>Add Debt Line</AppText>
             <Input label="Debt Type" value={debtType} onChangeText={setDebtType} placeholder="e.g. Credit Card, Student Loan" />
             <Input label={`Total Balance (${currencySymbol})`} value={debtTotal} onChangeText={setDebtTotal} placeholder="0.00" keyboardType="numeric" />
             <Input label={`Minimum Monthly Payment (${currencySymbol})`} value={debtMinPayment} onChangeText={setDebtMinPayment} placeholder="0.00" keyboardType="numeric" />
             <Input label="Interest Rate (%)" value={debtInterest} onChangeText={setDebtInterest} placeholder="e.g. 15" keyboardType="numeric" />
             <Input label="Monthly Due Day" value={debtDue} onChangeText={setDebtDue} placeholder="e.g. 15" keyboardType="number-pad" />
             
-            <Text style={styles.overdueLabel}>Is payment currently overdue?</Text>
+            <AppText variant="bodySemiBold" style={styles.overdueLabel}>Is payment currently overdue?</AppText>
             <View style={styles.yesNoContainer}>
               <TouchableOpacity
                 style={[styles.yesNoBtn, debtOverdue === true && styles.yesNoActive]}
                 onPress={() => setDebtOverdue(true)}
               >
-                <Text style={[styles.yesNoText, debtOverdue === true && styles.yesNoTextActive]}>Yes</Text>
+                <AppText variant="bodyMedium" style={[styles.yesNoText, debtOverdue === true && styles.yesNoTextActive]}>Yes</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.yesNoBtn, debtOverdue === false && styles.yesNoActive]}
                 onPress={() => setDebtOverdue(false)}
               >
-                <Text style={[styles.yesNoText, debtOverdue === false && styles.yesNoTextActive]}>No</Text>
+                <AppText variant="bodyMedium" style={[styles.yesNoText, debtOverdue === false && styles.yesNoTextActive]}>No</AppText>
               </TouchableOpacity>
             </View>
 
@@ -144,18 +155,18 @@ export default function DebtsScreen() {
 
         {/* List of active debts */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionHeader}>Monitored Debt Accounts</Text>
+          <AppText variant="bodySemiBold" style={styles.sectionHeader}>Monitored Debt Accounts</AppText>
           {debts.length === 0 ? (
             <Card style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No active debts tracked. Excellent!</Text>
+              <AppText variant="bodyMedium" style={styles.emptyText}>No active debts tracked. Excellent!</AppText>
             </Card>
           ) : (
             debts.map((item, idx) => (
               <Card key={idx} style={[styles.debtCard, item.isOverdue && styles.overdueDebtCard]}>
                 <View style={styles.debtHeader}>
                   <View>
-                    <Text style={styles.debtName}>{item.type}</Text>
-                    <Text style={styles.debtInterest}>Interest Rate: {item.interestRate}%</Text>
+                    <AppText variant="bodySemiBold" style={styles.debtName}>{item.type}</AppText>
+                    <AppText variant="caption" style={styles.debtInterest}>Interest Rate: {item.interestRate}%</AppText>
                   </View>
                   <TouchableOpacity onPress={() => handleDeleteDebt(idx)} style={styles.deleteBtn}>
                     <Ionicons name="trash-outline" size={18} color={COLORS.error} />
@@ -165,7 +176,7 @@ export default function DebtsScreen() {
                 {item.isOverdue && (
                   <View style={styles.overdueBanner}>
                     <Ionicons name="warning" size={14} color={COLORS.error} />
-                    <Text style={styles.overdueBannerText}>PAYMENT OVERDUE</Text>
+                    <AppText variant="labelSm" style={styles.overdueBannerText}>PAYMENT OVERDUE</AppText>
                   </View>
                 )}
 
@@ -173,20 +184,20 @@ export default function DebtsScreen() {
 
                 <View style={styles.debtStats}>
                   <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Total Balance</Text>
-                    <Text style={styles.statVal}>
-                      {formatCurrency(item.totalAmount, currencySymbol)}
-                    </Text>
+                    <AppText variant="caption" style={styles.statLabel}>Total Balance</AppText>
+                    <AppText variant="bodySemiBold" style={styles.statVal}>
+                      {formatCurrency(item.totalAmount, currencySymbol, locale)}
+                    </AppText>
                   </View>
                   <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Min Monthly</Text>
-                    <Text style={styles.statVal}>
-                      {formatCurrency(item.minimumPayment, currencySymbol)}
-                    </Text>
+                    <AppText variant="caption" style={styles.statLabel}>Min Monthly</AppText>
+                    <AppText variant="bodySemiBold" style={styles.statVal}>
+                      {formatCurrency(item.minimumPayment, currencySymbol, locale)}
+                    </AppText>
                   </View>
                   <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Due Day</Text>
-                    <Text style={styles.statVal}>Day {item.dueDate}</Text>
+                    <AppText variant="caption" style={styles.statLabel}>Due Day</AppText>
+                    <AppText variant="bodySemiBold" style={styles.statVal}>Day {item.dueDate}</AppText>
                   </View>
                 </View>
               </Card>
@@ -197,13 +208,13 @@ export default function DebtsScreen() {
         {/* Actionable Relief Suggestions */}
         {profile.debtPressure === 'critical' && (
           <Card style={styles.reliefCard}>
-            <Text style={styles.reliefTitle}>🚨 Critical Debt Pressure Guide</Text>
-            <Text style={styles.reliefText}>
+            <AppText variant="bodySemiBold" style={styles.reliefTitle}>🚨 Critical Debt Pressure Guide</AppText>
+            <AppText variant="caption" style={styles.reliefText}>
               Your debt obligations consume a high portion of your income. We recommend:
-            </Text>
-            <Text style={styles.reliefBullet}>• Contact creditors immediately to explain your shortfall and request interest reductions.</Text>
-            <Text style={styles.reliefBullet}>• Avoid taking on any new loans or credit card balances.</Text>
-            <Text style={styles.reliefBullet}>• Explore non-profit debt consolidation or counseling options in your municipality.</Text>
+            </AppText>
+            <AppText variant="caption" style={styles.reliefBullet}>• Contact creditors immediately to explain your shortfall and request interest reductions.</AppText>
+            <AppText variant="caption" style={styles.reliefBullet}>• Avoid taking on any new loans or credit card balances.</AppText>
+            <AppText variant="caption" style={styles.reliefBullet}>• Explore non-profit debt consolidation or counseling options in your municipality.</AppText>
           </Card>
         )}
       </ScrollView>
@@ -222,7 +233,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceContainerLowest,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -308,7 +319,7 @@ const styles = StyleSheet.create({
   },
   yesNoActive: {
     borderColor: COLORS.error,
-    backgroundColor: '#FFF2F2',
+    backgroundColor: COLORS.errorBackground,
   },
   yesNoText: {
     ...TYPOGRAPHY.bodyMedium,
@@ -370,6 +381,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   overdueBannerText: {
+    ...TYPOGRAPHY.labelSm,
     fontSize: 10,
     fontWeight: '700',
     color: COLORS.error,
@@ -396,7 +408,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   reliefCard: {
-    backgroundColor: '#FFF2F2',
+    backgroundColor: COLORS.errorBackground,
     borderColor: COLORS.error,
   },
   reliefTitle: {

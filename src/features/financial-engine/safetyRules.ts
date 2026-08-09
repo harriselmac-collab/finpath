@@ -1,3 +1,5 @@
+import { safeSum } from '../../utils/currency';
+
 export interface SafetyReport {
   hasDeficit: boolean;
   warningMessage: string | null;
@@ -13,9 +15,10 @@ export const evaluateBudgetSafety = (
   totalIncome: number,
   essentialExpenses: number,
   minimumDebt: number,
-  answers: Record<string, any>
+  answers: Record<string, any>,
+  plannedCommitments = 0,
 ): SafetyReport => {
-  const essentialOutflows = essentialExpenses + minimumDebt;
+  const essentialOutflows = safeSum([essentialExpenses, minimumDebt, plannedCommitments]);
   const hasDeficit = totalIncome < essentialOutflows;
 
   const protectedCategories = [

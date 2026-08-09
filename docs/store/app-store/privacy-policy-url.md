@@ -1,4 +1,4 @@
-# App Store Privacy Policy URL Info: FinPath
+# App Store Privacy Policy URL Info: Pocket Ahead
 
 Review notes for the Privacy Policy URL metadata field.
 
@@ -10,4 +10,4 @@ The Privacy Policy URL submitted to Apple App Store must match:
 
 ### Content on Privacy Page:
 * Full text of the Privacy Policy matching `src/app/profile/legal/privacy.tsx`.
-* Complete list of collected data categories, linkage status, and third-party Google Gemini AI processing details.
+* Complete list of collected data categories, linkage status, and the Supabase and optional Google sign-in service providers.

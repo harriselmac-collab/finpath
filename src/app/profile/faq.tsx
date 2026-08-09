@@ -1,71 +1,79 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { I18nManager, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
-import { Card } from '../../components/ui/Card';
 
-interface FaqItem {
-  question: string;
-  answer: string;
-}
+import AppText from '../../components/Text/AppText';
+import { Card, Icon } from '../../components/ui';
+import { COLORS, RADIUS, SPACING } from '../../constants/theme';
+
+const FAQS = ['allowance', 'storage'] as const;
 
 export default function FaqScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-
-  const faqs: FaqItem[] = [
-    {
-      question: 'How does FinPath calculate my daily spending limit?',
-      answer: 'FinPath takes your total monthly income, subtracts all essential expenses, debt payments, and your monthly savings targets, and divides the remainder by the number of days in the month.',
-    },
-    {
-      question: 'Where is my local financial assessment saved?',
-      answer: 'Your onboarding responses and transaction logs are cached securely using Expo SecureStore and persisted in a private PostgreSQL database container in Supabase with strict Row-Level Security.',
-    },
-    {
-      question: 'Can I export my data to other apps?',
-      answer: 'Yes! Navigate to the Privacy Centre and choose "Export My Data" to compile all your records into a standard machine-readable JSON format.',
-    },
-    {
-      question: 'How do I request account deletion?',
-      answer: 'You can delete your account instantly by choosing "Delete My Account" in the Privacy Centre, which purges all authentication credentials and database entries.',
-    },
-  ];
-
-  const toggleExpand = (idx: number) => {
-    setExpandedIndex(expandedIndex === idx ? null : idx);
-  };
+  const title = t('support.faq.title');
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Frequently Asked Questions</Text>
-        <View style={{ width: 40 }} />
+        <Pressable
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.faq.back')}
+        >
+          <Icon
+            name={I18nManager.isRTL ? 'arrow-forward' : 'arrow-back'}
+            size={24}
+            color={COLORS.primary}
+          />
+        </Pressable>
+        <AppText variant="sectionTitle" style={styles.headerTitle} role="heading" aria-level={1}>
+          {title}
+        </AppText>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {faqs.map((faq, idx) => (
-          <Card key={idx} style={styles.faqCard}>
-            <TouchableOpacity style={styles.questionRow} onPress={() => toggleExpand(idx)}>
-              <Text style={styles.questionText}>{faq.question}</Text>
-              <Ionicons
-                name={expandedIndex === idx ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={COLORS.primary}
-              />
-            </TouchableOpacity>
-            {expandedIndex === idx && (
-              <View style={styles.answerContainer}>
-                <Text style={styles.answerText}>{faq.answer}</Text>
-              </View>
-            )}
-          </Card>
-        ))}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        role="main"
+        accessibilityLabel={title}
+      >
+        {FAQS.map((faq, index) => {
+          const expanded = expandedIndex === index;
+          const question = t(`support.faq.${faq}Question`);
+          return (
+            <Card key={faq} style={styles.faqCard} shadow="none">
+              <Pressable
+                style={({ pressed }) => [styles.questionRow, pressed && styles.pressed]}
+                onPress={() => setExpandedIndex(expanded ? null : index)}
+                accessibilityRole="button"
+                accessibilityLabel={question}
+                accessibilityState={{ expanded }}
+              >
+                <AppText variant="bodySemiBold" style={styles.questionText} role="heading" aria-level={2}>
+                  {question}
+                </AppText>
+                <Icon
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={COLORS.primary}
+                />
+              </Pressable>
+              {expanded && (
+                <View style={styles.answerContainer}>
+                  <AppText variant="body" style={styles.answerText}>
+                    {t(`support.faq.${faq}Answer`)}
+                  </AppText>
+                </View>
+              )}
+            </Card>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -77,55 +85,65 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    height: 56,
     backgroundColor: COLORS.surfaceContainerLowest,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.outlineVariant,
   },
-  backBtn: {
-    padding: SPACING.xs,
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.round,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   headerTitle: {
-    ...TYPOGRAPHY.bodyMd,
+    flex: 1,
+    textAlign: 'center',
     color: COLORS.primary,
-    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 44,
   },
   scrollContent: {
-    padding: SPACING.md,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     gap: SPACING.sm,
+    padding: SPACING.lg,
   },
   faqCard: {
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surfaceContainerLowest,
+    padding: 0,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
   },
   questionRow: {
+    minHeight: 64,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: SPACING.md,
+    padding: SPACING.md,
   },
   questionText: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
+    minWidth: 0,
     flex: 1,
+    color: COLORS.textPrimary,
   },
   answerContainer: {
-    marginTop: SPACING.sm,
+    padding: SPACING.md,
     paddingTop: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.outlineVariant,
   },
   answerText: {
-    ...TYPOGRAPHY.caption,
     color: COLORS.textSecondary,
-    lineHeight: 16,
+    lineHeight: 24,
   },
 });

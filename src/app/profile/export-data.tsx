@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Clipboard, Share, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +12,10 @@ import { Button } from '../../components/ui/Button';
 import { useSessionStore } from '../../store/sessionStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useTransactionsStore } from '../../store/transactionsStore';
-import { supabase } from '../../services/supabase/supabaseClient';
+import { useGoalsStore } from '../../store/goalsStore';
+import { useBillsStore } from '../../store/billsStore';
+import { useNotificationPreferencesStore } from '../../store/notificationPreferencesStore';
+import { isSupabaseConfigured, supabase } from '../../services/supabase/supabaseClient';
 
 export default function ExportDataScreen() {
   const router = useRouter();
@@ -23,64 +28,71 @@ export default function ExportDataScreen() {
     setLoading(true);
     setExportData(null);
 
-    const isMockSupabase = !process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('mock-url.supabase.co');
-
     try {
-      if (!user) {
-        throw new Error(t('common.signInRequired', 'You must be signed in to export data.'));
-      }
-
       let profileData = null;
       let onboardingData = null;
       let debtsData = [];
       let goalsData = [];
+      let contributionsData = [];
+      let billsData = [];
       let transactionsData = [];
+      let preferencesData: Record<string, any> = {};
       let consentsData = [];
       let insightsData = [];
 
-      if (!isMockSupabase) {
-        // Fetch all tables where auth.uid() = user_id
-        const [
-          { data: profile },
-          { data: onboarding },
-          { data: debts },
-          { data: goals },
-          { data: transactions },
-          { data: consents },
-          { data: insights },
-        ] = await Promise.all([
+      if (isSupabaseConfigured && user) {
+        const results = await Promise.all([
           supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('onboarding_answers').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('debts').select('*').eq('user_id', user.id),
           supabase.from('goals').select('*').eq('user_id', user.id),
+          supabase.from('goal_contributions').select('*').eq('user_id', user.id),
+          supabase.from('recurring_expenses').select('*').eq('user_id', user.id),
           supabase.from('transactions').select('*').eq('user_id', user.id),
+          supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('privacy_consents').select('*').eq('user_id', user.id),
           supabase.from('ai_insights').select('*').eq('user_id', user.id),
         ]);
-        profileData = profile;
-        onboardingData = onboarding;
-        debtsData = debts || [];
-        goalsData = goals || [];
-        transactionsData = transactions || [];
-        consentsData = consents || [];
-        insightsData = insights || [];
+        if (results.some((result) => result.error)) {
+          throw new Error(t('common.exportIncomplete', 'Pocket Ahead could not retrieve every record. Nothing was exported; please try again.'));
+        }
+        profileData = results[0].data;
+        onboardingData = results[1].data;
+        debtsData = results[2].data || [];
+        goalsData = results[3].data || [];
+        contributionsData = results[4].data || [];
+        billsData = results[5].data || [];
+        transactionsData = results[6].data || [];
+        preferencesData = results[7].data || {};
+        consentsData = results[8].data || [];
+        insightsData = results[9].data || [];
       } else {
         // Hydrate from local stores
         const localAnswers = useOnboardingStore.getState().answers;
         const localDebts = useOnboardingStore.getState().debts;
         const localTransactions = useTransactionsStore.getState().transactions;
 
-        profileData = { preferred_name: localAnswers.preferredName || (user.email || 'guest').split('@')[0] };
+        profileData = { preferred_name: localAnswers.preferredName || (user?.email || 'guest').split('@')[0] };
         onboardingData = { answers_json: localAnswers };
         debtsData = localDebts;
-        goalsData = [
-          { name: 'Emergency Protection Fund', targetAmount: 15000, alreadySaved: 3000, targetDate: '2027-07-13', isEssential: true, classification: 'essential', emoji: '🛡️' },
-          { name: 'New Laptop for Work', targetAmount: 8000, alreadySaved: 2000, targetDate: '2026-11-13', isEssential: false, classification: 'important', emoji: '💻' }
-        ];
+        goalsData = useGoalsStore.getState().goals;
+        contributionsData = useGoalsStore.getState().contributions;
+        billsData = useBillsStore.getState().bills;
         transactionsData = localTransactions;
+        const localPreferences = useNotificationPreferencesStore.getState();
+        preferencesData = {
+          bills: localPreferences.bills,
+          debts: localPreferences.debts,
+          savings: localPreferences.savings,
+          goals: localPreferences.goals,
+          weeklySummary: localPreferences.weeklySummary,
+          monthlyReview: localPreferences.monthlyReview,
+          culturalEvents: localPreferences.culturalEvents,
+          productUpdates: localPreferences.productUpdates,
+          marketing: localPreferences.marketing,
+        };
         consentsData = [
           { consent_type: 'religion', granted: localAnswers.religion_consent_granted || false },
-          { consent_type: 'analytics', granted: true }
         ];
         insightsData = [];
       }
@@ -88,14 +100,17 @@ export default function ExportDataScreen() {
       const exportEnvelope = {
         exported_at: new Date().toISOString(),
         user_identity: {
-          id: user.id,
-          email: user.email || '',
+          id: user?.id || 'local-device-user',
+          email: user?.email || '',
         },
         profile: profileData || {},
         onboarding: onboardingData || {},
         debts: debtsData || [],
         goals: goalsData || [],
+        goal_contributions: contributionsData,
+        recurring_bills: billsData,
         transactions: transactionsData || [],
+        notification_preferences: preferencesData,
         privacy_consents: consentsData || [],
         ai_insights: insightsData || [],
       };
@@ -103,43 +118,49 @@ export default function ExportDataScreen() {
       const jsonString = JSON.stringify(exportEnvelope, null, 2);
       setExportData(jsonString);
 
-      if (!isMockSupabase) {
-        await supabase.from('data_export_requests').insert({
+      if (isSupabaseConfigured && user) {
+        const { error: auditError } = await supabase.from('data_export_requests').insert({
           user_id: user.id,
           status: 'completed',
         });
+        if (auditError) console.warn('Data export audit record failed.');
       }
 
       Alert.alert(t('common.success', 'Success'), t('common.exportCompiled', 'Data compiled successfully!'));
     } catch (err: any) {
-      Alert.alert(t('common.error', 'Error'), err.message || t('common.exportFailed', 'Failed to assemble export data.'));
-      if (user && !isMockSupabase) {
-        await supabase.from('data_export_requests').insert({
+      Alert.alert(t('common.error', 'Error'), err instanceof Error ? err.message : t('common.exportFailed', 'Failed to assemble export data.'));
+      if (user && isSupabaseConfigured) {
+        const { error: auditError } = await supabase.from('data_export_requests').insert({
           user_id: user.id,
           status: 'failed',
         });
+        if (auditError) console.warn('Data export failure audit record failed.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
-    if (exportData) {
-      Clipboard.setString(exportData);
-      Alert.alert(t('common.success', 'Success'), t('common.copiedToClipboard', 'JSON payload copied to clipboard.'));
-    }
-  };
-
   const handleShare = async () => {
     if (exportData) {
       try {
-        await Share.share({
-          message: exportData,
-          title: 'FinPath Data Export',
-        });
-      } catch (err: any) {
-        Alert.alert(t('common.error', 'Error'), err.message);
+        if (Platform.OS === 'web') {
+          await Share.share({ message: exportData, title: 'Pocket Ahead Data Export' });
+          return;
+        }
+        const exportFile = new File(Paths.cache, `pocket-ahead-export-${Date.now()}.json`);
+        exportFile.create({ overwrite: true });
+        exportFile.write(exportData);
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(exportFile.uri, {
+            dialogTitle: t('settings.exportData.shareBtn'),
+            mimeType: 'application/json',
+          });
+          return;
+        }
+        await Share.share({ message: exportData, title: 'Pocket Ahead Data Export' });
+      } catch {
+        Alert.alert(t('common.error', 'Error'), t('common.exportShareFailed', 'The export file could not be shared. Please try again.'));
       }
     }
   };
@@ -148,7 +169,12 @@ export default function ExportDataScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back', 'Back')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.exportData.title')}</Text>
@@ -182,11 +208,12 @@ export default function ExportDataScreen() {
             <Text style={styles.bodyText}>{t('settings.exportData.readyDesc')}</Text>
 
             <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.actionBtn} onPress={handleCopy}>
-                <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.actionBtnText}>{t('settings.exportData.copyBtn')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => void handleShare()}
+                accessibilityRole="button"
+                accessibilityLabel={t('settings.exportData.shareBtn')}
+              >
                 <Ionicons name="share-social-outline" size={20} color={COLORS.primary} />
                 <Text style={styles.actionBtnText}>{t('settings.exportData.shareBtn')}</Text>
               </TouchableOpacity>
@@ -295,7 +322,7 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
   },
   jsonText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    ...TYPOGRAPHY.caption,
     fontSize: 11,
     color: COLORS.textPrimary,
   },

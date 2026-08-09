@@ -14,7 +14,12 @@ export default function HelpScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.accessibility.back')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.help.title')}</Text>
@@ -25,8 +30,6 @@ export default function HelpScreen() {
         <Card style={styles.card}>
           <Text style={styles.sectionHeader}>{t('settings.help.detailsHeader')}</Text>
           <Text style={styles.bodyText}>{t('settings.help.detailsDesc')}</Text>
-          <Text style={styles.bodyText}>{t('settings.help.detailsDesc2')}</Text>
-          <Text style={styles.bodyText}>{t('settings.help.detailsDesc3')}</Text>
         </Card>
 
         <Card style={styles.card}>

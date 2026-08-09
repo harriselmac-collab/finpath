@@ -1,4 +1,4 @@
-# Google Play Content Rating Notes: FinPath
+# Google Play Content Rating Notes: Pocket Ahead
 
 Content rating notes for the IARC questionnaire.
 

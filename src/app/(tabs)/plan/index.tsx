@@ -1,220 +1,254 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { I18nManager, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../../constants/theme';
-import { Card } from '../../../components/ui/Card';
-import { SectionHeader } from '../../../components/ui/SectionHeader';
-import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useOnboardingStore } from '../../../store/onboardingStore';
-import { useTransactionsStore } from '../../../store/transactionsStore';
+import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import AppText from '../../../components/Text/AppText';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { COLORS, RADIUS, SPACING } from '../../../constants/theme';
 import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
-import { formatCurrency } from '../../../utils/currency';
-import { SavingsProjectionChart, DebtPaydownChart } from '../../../components/ui/TrajectoryChart';
+import {
+  hasRequiredMonthlyPlanInputs,
+  isMonthlyPlanReady,
+} from '../../../features/onboarding/quizFlow';
+import { useOnboardingStore } from '../../../store/onboardingStore';
+import { formatCurrency, safeMultiply } from '../../../utils/currency';
+import { useTabContentBottomInset } from '../../../hooks/useTabContentBottomInset';
+import { getAnnualProjectionLabelKey } from '../../../utils/planPresentation';
 
 export default function PlanScreen() {
-  const { t } = useTranslation();
-  const { answers, debts } = useOnboardingStore();
-  const { transactions } = useTransactionsStore();
-
-  const currencySymbol = answers['currency'] || 'MAD';
-
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const reduceMotion = useReducedMotion();
+  const contentBottomInset = useTabContentBottomInset();
+  const { answers, debts, onboardingCompleted } = useOnboardingStore();
+  const currency = answers.currency || 'MAD';
+  const locale = i18n.resolvedLanguage || i18n.language || 'en';
   const profile = calculateFinancialProfile({ answers, debts });
+  const isPlanReady = isMonthlyPlanReady(answers, debts, onboardingCompleted);
+  const hasRequiredInputs = hasRequiredMonthlyPlanInputs(answers, debts);
+  const formatMoney = (amount: number) => formatCurrency(amount, currency, locale);
 
-  // Calculate actual spending from transactions for each budget category
-  const calculateActualSpending = () => {
-    // Group: Housing
-    const housingCategories = ['Housing', 'Mortgage', 'Rent'];
-    const housingActual = transactions
-      .filter(t => t.type === 'essential' && housingCategories.includes(t.category))
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Group: Groceries & Essentials
-    const groceriesEssentialsCategories = ['Groceries', 'Food', 'Snacks', 'Beverages', 'Household Essentials', 'Personal Care'];
-    const groceriesEssentialsActual = transactions
-      .filter(t => t.type === 'essential' && groceriesEssentialsCategories.includes(t.category))
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Group: Utilities & Phone
-    const utilitiesPhoneCategories = ['Utilities', 'Electricity', 'Water', 'Internet', 'Phone', 'Gas', 'Trash', 'Sewer'];
-    const utilitiesPhoneActual = transactions
-      .filter(t => t.type === 'essential' && utilitiesPhoneCategories.includes(t.category))
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Group: Healthcare & Medication
-    const healthcareCategories = ['Healthcare', 'Medication', 'Doctor', 'Dental', 'Vision', 'Insurance', 'Pharmacy', 'Medical Supplies'];
-    const healthcareActual = transactions
-      .filter(t => t.type === 'essential' && healthcareCategories.includes(t.category))
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Group: Debt Services (transactions with type 'debt')
-    const debtActual = transactions
-      .filter(t => t.type === 'debt')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      housing: housingActual,
-      groceriesEssentials: groceriesEssentialsActual,
-      utilitiesPhone: utilitiesPhoneActual,
-      healthcare: healthcareActual,
-      debt: debtActual,
-    };
-  };
-
-  const actualSpending = calculateActualSpending();
+  const plannedCommitments = profile.monthlyAnnualExpensesPortion + profile.requiredUpcomingContributions;
+  const plannedMonthlyOutflow = profile.essentialMonthlyExpenses
+    + profile.flexibleMonthlyExpenses
+    + profile.minimumMonthlyDebtPayments
+    + plannedCommitments;
 
   const budgetCategories = [
     {
-      name: t('plan.categories.housing', 'Housing'),
-      planned: Number(answers.housingAmount || 0),
-      actual: actualSpending.housing,
-      color: COLORS.primary,
-      icon: 'home-outline',
+      name: t('planDetails.plannedEssentials'),
+      planned: profile.essentialMonthlyExpenses,
+      icon: 'shield-checkmark-outline',
     },
     {
-      name: t('plan.categories.groceries', 'Groceries & Essentials'),
-      planned: Number(answers.groceries || 0),
-      actual: actualSpending.groceriesEssentials,
-      color: COLORS.emerald,
-      icon: 'cart-outline',
+      name: t('planDetails.plannedFlexible'),
+      planned: profile.flexibleMonthlyExpenses,
+      icon: 'options-outline',
     },
     {
-      name: t('plan.categories.utilities', 'Utilities & Phone'),
-      planned:
-        Number(answers.electricity || 0) +
-        Number(answers.water || 0) +
-        Number(answers.internet || 0) +
-        Number(answers.phone || 0),
-      actual: actualSpending.utilitiesPhone,
-      color: COLORS.secondary,
-      icon: 'flash-outline',
-    },
-    {
-      name: t('plan.categories.healthcare', 'Healthcare & Medication'),
-      planned:
-        Number(answers.medicationExpenses || 0) +
-        Number(answers.healthInsurance || 0) +
-        Number(answers.medicalAppointments || 0) +
-        Number(answers.supportOtherHealthcare || 0),
-      actual: actualSpending.healthcare,
-      color: COLORS.error,
-      icon: 'medical-outline',
-    },
-    {
-      name: t('plan.categories.debt', 'Debt Services'),
+      name: t('planDetails.minimumDebtPayments'),
       planned: profile.minimumMonthlyDebtPayments,
-      actual: actualSpending.debt,
-      color: COLORS.warning,
       icon: 'card-outline',
     },
-  ];
+    {
+      name: t('planDetails.annualCommitment'),
+      planned: plannedCommitments,
+      icon: 'calendar-outline',
+    },
+  ].filter((category) => category.planned > 0);
 
-  const activeCategories = budgetCategories.filter((cat) => cat.planned > 0);
+  const annualProjection = safeMultiply(profile.realAvailableMonthlyBalance, 12);
+  const mapInsight = profile.budgetDeficit
+    ? t('planDetails.insightDeficit', { amount: formatMoney(Math.abs(profile.realAvailableMonthlyBalance)) })
+    : profile.upcomingExpenseRisk === 'high'
+      ? t('planDetails.insightUpcoming')
+      : profile.debtPressure === 'high' || profile.debtPressure === 'critical'
+        ? t('planDetails.insightDebt')
+        : t('planDetails.insightBalanced');
+  const planTip = profile.budgetDeficit
+    ? t('planDetails.tipDeficit')
+    : t('planDetails.tipBalanced');
+  const enter = (delay = 0) => reduceMotion
+    ? undefined
+    : FadeInUp.duration(220).delay(delay);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomInset }]}
         showsVerticalScrollIndicator={false}
+        role="main"
       >
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>{t('plan.title', 'Monthly Plan')}</Text>
-          <Text style={styles.subtitle}>{t('plan.subtitle', 'Allocated budget vs actual outflows')}</Text>
+          <View>
+            <AppText variant="supporting" style={styles.eyebrow}>
+              {answers.preferredName
+                ? t('planDetails.greeting', { name: answers.preferredName })
+                : t('planDetails.greetingFallback')}
+            </AppText>
+            <AppText variant="screenTitle" style={styles.title} role="heading" aria-level={1}>
+              {t('planDetails.title')}
+            </AppText>
+          </View>
+          <Pressable
+            onPress={() => router.push('/profile/notifications')}
+            style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={t('planDetails.notifications')}
+          >
+            <Ionicons name="notifications-outline" size={21} color={COLORS.primary} accessible={false} />
+          </Pressable>
         </View>
 
-        {/* Plan Overview Card */}
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.sumBox}>
-              <Text style={styles.sumLabel}>{t('plan.totalInflows', 'Total Inflows')}</Text>
-              <Text style={[styles.sumVal, { color: COLORS.emerald }]}>
-                {formatCurrency(profile.totalMonthlyIncome, currencySymbol)}
-              </Text>
-            </View>
-            <View style={styles.dividerCol} />
-            <View style={styles.sumBox}>
-              <Text style={styles.sumLabel}>{t('plan.essentialOutflows', 'Essential Outflows')}</Text>
-              <Text style={[styles.sumVal, { color: COLORS.primary }]}>
-                {formatCurrency(profile.essentialMonthlyExpenses + profile.minimumMonthlyDebtPayments, currencySymbol)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.dividerRow} />
-          <View style={styles.balanceRow}>
-            <Text style={styles.balLabel}>{t('plan.availableBalance', 'Discretionary / Available Balance')}</Text>
-            <Text style={[styles.balVal, profile.realAvailableMonthlyBalance < 0 && { color: COLORS.error }]}>
-              {formatCurrency(profile.realAvailableMonthlyBalance, currencySymbol)}
-            </Text>
-          </View>
-        </Card>
-
-        {/* Categories budget trackers */}
-        <View style={styles.categoriesSection}>
-          <SectionHeader
-            title={t('dashboard.drawer.plan', 'Planned Allocations')}
-            subtitle={t('dashboard.trendsSubtitle', 'Budget vs actual spending')}
-            icon="pie-chart-outline"
-          />
-          {activeCategories.map((cat, idx) => {
-            const progress = cat.planned > 0 ? Math.min(cat.actual / cat.planned, 1) : 0; // Cap at 100% for display
-            const progressColor =
-              progress >= 1 ? COLORS.error :
-              progress >= 0.9 ? COLORS.warning :
-              COLORS.emerald;
-            return (
-              <Card key={idx} style={styles.categoryCard}>
-                <View style={styles.categoryHeader}>
-                  <View style={styles.categoryLeft}>
-                    <View style={[styles.categoryIcon, { backgroundColor: `${cat.color}15` }]}>
-                      <Ionicons name={cat.icon as any} size={18} color={cat.color} />
-                    </View>
-                    <Text style={styles.categoryName}>{cat.name}</Text>
-                  </View>
-                  <Text style={styles.categoryNumbers}>
-                    {formatCurrency(cat.actual, currencySymbol)} / {formatCurrency(cat.planned, currencySymbol)}
-                  </Text>
-                </View>
-                <ProgressBar progress={progress} color={progressColor} />
-              </Card>
-            );
-          })}
-        </View>
-
-        {/* Interactive Trajectory Projections */}
-        <View style={styles.categoriesSection}>
-          <SectionHeader
-            title={t('plan.projections', 'Interactive Projections')}
-            subtitle={t('plan.trajectory', 'Visualize your financial trajectory')}
-            icon="trending-up-outline"
-          />
-          <SavingsProjectionChart
-            initialSaved={0}
-            monthlySave={profile.realAvailableMonthlyBalance > 0 ? profile.realAvailableMonthlyBalance : 0}
-            currencySymbol={currencySymbol}
-          />
-          {debts.length > 0 && (
-            <DebtPaydownChart
-              debts={debts}
-              availableSurplus={profile.realAvailableMonthlyBalance > 0 ? profile.realAvailableMonthlyBalance : 0}
-              currencySymbol={currencySymbol}
+        {!isPlanReady ? (
+          <Card style={styles.setupCard} shadow="md">
+            <AppText variant="sectionTitle" style={styles.setupTitle} role="heading" aria-level={2}>
+              {t('dashboard.completePlanTitle')}
+            </AppText>
+            <AppText variant="body" style={styles.setupDescription}>
+              {t('dashboard.completePlanDescription')}
+            </AppText>
+            <Button
+              title={t('dashboard.completePlanAction')}
+              onPress={() => router.push(
+                hasRequiredInputs ? '/onboarding/essential-expenses' : '/onboarding/quiz',
+              )}
             />
-          )}
-        </View>
-
-        {/* Non-essential reminder box */}
-        <Card style={styles.reminderCard}>
-          <View style={styles.reminderHeader}>
-            <View style={styles.reminderIconBox}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.darkEmerald} />
+          </Card>
+        ) : (
+          <>
+        <Animated.View entering={enter()}>
+          <View style={styles.projectionCard}>
+            <AppText variant="supporting" style={styles.projectionLabel}>
+              {t('planDetails.projectionLabel')}
+            </AppText>
+            <AppText
+              variant="financialAmount"
+              style={[styles.projectionAmount, profile.budgetDeficit && styles.projectionAmountDeficit]}
+            >
+              {formatMoney(annualProjection)}
+            </AppText>
+            <AppText variant="supporting" style={styles.projectionCaption}>
+              {t(getAnnualProjectionLabelKey(annualProjection))}
+            </AppText>
+            <View style={styles.estimateExplanation}>
+              <AppText variant="supporting" style={styles.projectionCaveat}>
+                {t('planDetails.projectionCaveat')}
+              </AppText>
+              <AppText variant="caption" style={styles.estimateBasis}>
+                {t('planDetails.projectionBasis', { amount: formatMoney(profile.realAvailableMonthlyBalance) })}
+              </AppText>
             </View>
-            <Text style={styles.reminderTitle}>{t('plan.protectedFirstPrinciples', 'Protected First Principles')}</Text>
           </View>
-          <Text style={styles.reminderText}>
-            {t('plan.protectedDesc', 'Always cover Food, Housing, and Medications first before making any discretionary purchases or saving for optional personal goals.')}
-          </Text>
-        </Card>
+        </Animated.View>
+
+        <Animated.View entering={enter(50)} style={styles.insightRow}>
+          <View style={styles.insightIcon}>
+            <Ionicons name="map-outline" size={24} color={COLORS.secondary} accessible={false} />
+          </View>
+          <View style={styles.insightCopy}>
+            <AppText variant="cardTitle" style={styles.insightTitle}>
+              {t('planDetails.mapInsightTitle')}
+            </AppText>
+            <AppText variant="supporting" style={styles.insightText}>{mapInsight}</AppText>
+          </View>
+          <Pressable
+            onPress={() => router.push(profile.budgetDeficit ? '/onboarding/essential-expenses' : '/goals')}
+            style={({ pressed }) => [styles.planAhead, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={profile.budgetDeficit
+              ? t('dashboard.reviewFlexibleExpenses')
+              : t('planDetails.planAhead')}
+          >
+            <AppText variant="bodySemiBold" style={styles.planAheadText}>
+              {profile.budgetDeficit ? t('dashboard.reviewFlexibleExpenses') : t('planDetails.planAhead')}
+            </AppText>
+            <Ionicons
+              name={I18nManager.isRTL ? 'arrow-back' : 'arrow-forward'}
+              size={17}
+              color={COLORS.secondary}
+              accessible={false}
+            />
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={enter(100)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderCopy}>
+              <AppText variant="sectionTitle" style={styles.sectionTitle} role="heading" aria-level={2}>
+                {t('planDetails.monthlyObligations')}
+              </AppText>
+              <AppText variant="supporting" style={styles.sectionSubtitle}>
+                {t('planDetails.obligationsSubtitle')}
+              </AppText>
+            </View>
+            <AppText variant="bodySemiBold" style={styles.totalOutflow}>
+              {formatMoney(plannedMonthlyOutflow)}
+            </AppText>
+          </View>
+
+          {budgetCategories.length === 0 ? (
+            <Card style={styles.emptyState} shadow="none">
+              <Ionicons name="document-text-outline" size={24} color={COLORS.secondary} accessible={false} />
+              <View style={styles.insightCopy}>
+                <AppText variant="bodySemiBold" style={styles.categoryName}>
+                  {t('planDetails.noObligationsTitle')}
+                </AppText>
+                <AppText variant="supporting" style={styles.sectionSubtitle}>
+                  {t('planDetails.noObligationsDescription')}
+                </AppText>
+              </View>
+            </Card>
+          ) : (
+            <View style={styles.obligationsList}>
+              {budgetCategories.map((category, index) => {
+                return (
+                  <View
+                    key={category.name}
+                    style={[
+                      styles.obligationRow,
+                      index < budgetCategories.length - 1 && styles.divider,
+                    ]}
+                  >
+                    <View style={styles.categoryIcon}>
+                      <Ionicons name={category.icon as any} size={19} color={COLORS.secondary} accessible={false} />
+                    </View>
+                    <View style={styles.categoryCopy}>
+                      <View style={styles.categoryTopRow}>
+                        <AppText variant="bodySemiBold" style={styles.categoryName}>{category.name}</AppText>
+                        <AppText variant="supporting" style={styles.categoryAmount}>
+                          {t('planDetails.plannedAmount', { amount: formatMoney(category.planned) })}
+                        </AppText>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </Animated.View>
+
+        <Animated.View entering={enter(150)}>
+          <Card style={styles.tipCard} shadow="none">
+            <View style={styles.tipIcon}>
+              <Ionicons name="sparkles-outline" size={22} color={COLORS.secondary} accessible={false} />
+            </View>
+            <View style={styles.insightCopy}>
+              <AppText variant="bodySemiBold" style={styles.tipTitle}>
+                {t('planDetails.tipTitle')}
+              </AppText>
+              <AppText variant="supporting" style={styles.tipText}>{planTip}</AppText>
+            </View>
+          </Card>
+        </Animated.View>
+          </>
+        )}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -223,131 +257,215 @@ export default function PlanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     padding: SPACING.lg,
     gap: SPACING.lg,
   },
   header: {
-    marginBottom: SPACING.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  eyebrow: {
+    color: COLORS.textSecondary,
   },
   title: {
-    ...TYPOGRAPHY.headlineMd,
-    color: COLORS.textPrimary,
+    color: COLORS.primary,
+    letterSpacing: -0.8,
   },
-  subtitle: {
-    ...TYPOGRAPHY.labelSm,
+  headerAction: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceContainerLow,
+  },
+  setupCard: {
+    gap: SPACING.md,
+  },
+  setupTitle: {
+    color: COLORS.primary,
+  },
+  setupDescription: {
     color: COLORS.textSecondary,
-    marginTop: 2,
+    lineHeight: 24,
   },
-  summaryCard: {
+  pressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.98 }],
+  },
+  projectionCard: {
+    overflow: 'hidden',
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
     backgroundColor: COLORS.surfaceContainerLowest,
-    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sumBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  sumLabel: {
-    ...TYPOGRAPHY.labelSm,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  sumVal: {
-    ...TYPOGRAPHY.headlineMd,
-    fontSize: 16,
-  },
-  dividerCol: {
-    width: 1,
-    height: 40,
-    backgroundColor: COLORS.outlineVariant,
-  },
-  dividerRow: {
-    height: 1,
-    backgroundColor: COLORS.outlineVariant,
-    marginVertical: SPACING.md,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  balLabel: {
-    ...TYPOGRAPHY.bodyMedium,
+  projectionLabel: {
     color: COLORS.textSecondary,
   },
-  balVal: {
-    ...TYPOGRAPHY.bodySemiBold,
+  projectionAmount: {
+    marginTop: SPACING.sm,
+    color: COLORS.primary,
+    fontSize: 30,
+    lineHeight: 38,
+    letterSpacing: -1,
+  },
+  projectionAmountDeficit: {
+    color: COLORS.error,
+  },
+  projectionCaption: {
     color: COLORS.textPrimary,
-    fontSize: 16,
   },
-  categoriesSection: {
-    gap: SPACING.sm,
-  },
-  categoryCard: {
-    padding: SPACING.md,
+  estimateExplanation: {
     gap: SPACING.xs,
+    marginTop: SPACING.xl,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.outlineVariant,
   },
-  categoryHeader: {
+  estimateBasis: {
+    color: COLORS.textSecondary,
+  },
+  projectionCaveat: {
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
+  insightRow: {
+    minHeight: 92,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.outlineVariant,
   },
-  categoryLeft: {
+  insightIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.mintBackground,
+  },
+  insightCopy: {
+    flex: 1,
+  },
+  insightTitle: {
+    color: COLORS.primary,
+  },
+  insightText: {
+    color: COLORS.textSecondary,
+    lineHeight: 21,
+  },
+  planAhead: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  planAheadText: {
+    color: COLORS.secondary,
+  },
+  section: {
+    gap: SPACING.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+  },
+  sectionTitle: {
+    color: COLORS.primary,
+  },
+  sectionSubtitle: {
+    color: COLORS.textSecondary,
+  },
+  totalOutflow: {
+    color: COLORS.secondary,
+  },
+  obligationsList: {
+    overflow: 'hidden',
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  obligationRow: {
+    minHeight: 78,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    flex: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  divider: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.outlineVariant,
   },
   categoryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.round,
     alignItems: 'center',
-  },
-  categoryName: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-  },
-  categoryNumbers: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-  },
-  reminderCard: {
+    justifyContent: 'center',
     backgroundColor: COLORS.mintBackground,
-    borderColor: COLORS.emerald,
-    padding: SPACING.md,
-    gap: SPACING.xs,
   },
-  reminderHeader: {
+  categoryCopy: {
+    flex: 1,
+    gap: 8,
+  },
+  categoryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: SPACING.sm,
-    marginBottom: SPACING.xs,
   },
-  reminderIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  reminderTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.darkEmerald,
-  },
-  reminderText: {
-    ...TYPOGRAPHY.bodyMedium,
+  categoryName: {
+    flex: 1,
     color: COLORS.textPrimary,
-    lineHeight: 20,
+  },
+  categoryAmount: {
+    flexShrink: 1,
+    color: COLORS.textSecondary,
+    textAlign: 'right',
+  },
+  emptyState: {
+    minHeight: 92,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: COLORS.surfaceContainerLow,
+  },
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: COLORS.mintBackground,
+    borderWidth: 1,
+    borderColor: COLORS.secondaryContainer,
+  },
+  tipIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.66)',
+  },
+  tipTitle: {
+    color: COLORS.secondary,
+  },
+  tipText: {
+    color: COLORS.textPrimary,
   },
 });

@@ -6,70 +6,79 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { useTranslation } from 'react-i18next';
+import { openSupportEmail } from '../../services/support/openSupportEmail';
 
 export default function ContactScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!subject.trim() || !message.trim()) {
-      Alert.alert('Validation Error', 'All fields are required.');
+      Alert.alert(t('common.error', 'Error'), t('support.contact.allFieldsRequired'));
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await openSupportEmail(subject.trim(), message.trim());
+    } catch {
+      Alert.alert(t('common.error', 'Error'), t('support.contact.openFailed'));
+    } finally {
       setLoading(false);
-      Alert.alert(
-        'Ticket Submitted',
-        'We received your support ticket. Expect a response in our standard response time (approx. 24 hours).',
-        [{ text: 'OK', onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') }]
-      );
-    }, 1000);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.accessibility.back')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Contact Support</Text>
+        <Text style={styles.headerTitle}>{t('profile.rows.contactSupport')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>Submit Support Ticket</Text>
+          <Text style={styles.sectionHeader}>{t('support.contact.formTitle')}</Text>
           
           <View style={styles.field}>
-            <Text style={styles.label}>Subject</Text>
+            <Text style={styles.label}>{t('support.contact.subject')}</Text>
             <TextInput
               style={styles.input}
               value={subject}
               onChangeText={setSubject}
-              placeholder="e.g. Question about goal calculations"
+              placeholder={t('support.contact.subjectPlaceholder')}
               placeholderTextColor={COLORS.textSecondary}
+              accessibilityLabel={t('support.contact.subject')}
             />
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Message</Text>
+            <Text style={styles.label}>{t('support.contact.message')}</Text>
             <TextInput
               style={[styles.input, styles.multilineInput]}
               value={message}
               onChangeText={setMessage}
-              placeholder="Provide as much details as possible..."
+              placeholder={t('support.contact.messagePlaceholder')}
               placeholderTextColor={COLORS.textSecondary}
               multiline
               numberOfLines={6}
+              accessibilityLabel={t('support.contact.message')}
             />
           </View>
 
           <Button
-            title={loading ? 'Submitting...' : 'Submit Request'}
+            title={loading ? t('support.contact.opening') : t('support.contact.submit')}
             onPress={handleSubmit}
             disabled={loading}
           />

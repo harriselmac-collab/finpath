@@ -64,5 +64,5 @@ export const Icon: React.FC<IconProps> = ({ name, size = 20, color, style }) => 
   const resolvedName = ICON_MAPPING[name] || name;
   const finalName = resolvedName as React.ComponentProps<typeof Ionicons>['name'];
 
-  return <Ionicons name={finalName} size={size} color={color} style={style} />;
+  return <Ionicons name={finalName} size={size} color={color} style={style} accessible={false} />;
 };

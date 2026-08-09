@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, I18nManager, Platform, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, I18nManager, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,7 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
+import { FlagIcon } from '../../components/ui/FlagIcon';
 import { LANGUAGES } from '../../components/ui/LanguageSelector';
+import {
+  isRtlLanguage,
+  normalizeLanguageCode,
+} from '../../services/localization/languages';
+import AppText from '../../components/Text/AppText';
 
 export default function LanguageScreen() {
   const router = useRouter();
@@ -18,11 +24,12 @@ export default function LanguageScreen() {
       await AsyncStorage.setItem('user-language', lang);
       await i18n.changeLanguage(lang);
       
-      const isRTL = lang === 'ar';
+      const isRTL = isRtlLanguage(lang);
       
       // Update HTML root element dir for browser views
       if (typeof document !== 'undefined') {
-        document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+        document.documentElement.setAttribute('lang', lang);
+        document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
       }
 
       if (I18nManager.isRTL !== isRTL) {
@@ -44,22 +51,38 @@ export default function LanguageScreen() {
           Alert.alert(t('common.success', 'Success'), t('common.languageUpdated', 'Language updated successfully.'));
         }
       }
-    } catch (err: any) {
+    } catch {
       Alert.alert(t('common.error', 'Error'), t('common.saveFailed', 'Failed to save language preference.'));
     }
   };
 
-  const renderLangOption = (lang: typeof LANGUAGES[0]) => {
-    const isSelected = i18n.language === lang.key;
+  const renderLangOption = (lang: (typeof LANGUAGES)[number]) => {
+    const isSelected = normalizeLanguageCode(i18n.resolvedLanguage || i18n.language) === lang.key;
     return (
       <TouchableOpacity
         key={lang.key}
         style={[styles.langItem, isSelected && styles.langItemSelected]}
         onPress={() => handleLanguageChange(lang.key)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isSelected }}
+        accessibilityRole="radio"
+        accessibilityLabel={`${lang.label}, ${lang.shortLabel}`}
+        accessibilityState={{ selected: isSelected }}
       >
-        <Text style={[styles.langText, isSelected && styles.langTextSelected]}>{lang.label}</Text>
+        <View style={styles.langIdentity}>
+          <FlagIcon countryCode={lang.countryCode} size={28} />
+          <View>
+            <AppText
+              variant="bodyMedium"
+              style={[
+                styles.langText,
+                lang.key === 'ar' && styles.arabicLanguageText,
+                isSelected && styles.langTextSelected,
+              ]}
+            >
+              {lang.label}
+            </AppText>
+            <AppText variant="labelSm" style={styles.languageCode}>{lang.shortLabel}</AppText>
+          </View>
+        </View>
         {isSelected && (
           <Ionicons name="checkmark-circle" size={20} color={COLORS.emerald} />
         )}
@@ -73,13 +96,13 @@ export default function LanguageScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('profile.rows.language', 'Language Settings')}</Text>
+        <AppText variant="bodySemiBold" style={styles.headerTitle}>{t('profile.rows.language', 'Language Settings')}</AppText>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>{t('common.chooseLanguage', 'Choose Application Language')}</Text>
+          <AppText variant="bodyMedium" style={styles.sectionHeader}>{t('common.chooseLanguage', 'Choose Application Language')}</AppText>
           <View style={styles.list}>
             {LANGUAGES.map((lang) => renderLangOption(lang))}
           </View>
@@ -149,12 +172,25 @@ const styles = StyleSheet.create({
     borderColor: COLORS.emerald,
     backgroundColor: COLORS.mintBackground,
   },
+  langIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
   langText: {
     ...TYPOGRAPHY.bodyMedium,
     color: COLORS.textPrimary,
     fontWeight: '600',
   },
+  languageCode: {
+    ...TYPOGRAPHY.labelSm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
   langTextSelected: {
     color: COLORS.darkEmerald,
+  },
+  arabicLanguageText: {
+    fontFamily: 'Cairo',
   },
 });

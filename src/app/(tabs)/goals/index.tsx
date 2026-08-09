@@ -1,1168 +1,183 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Modal,
-  Pressable,
-  Platform,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../../constants/theme';
-import { Card, ProgressBar, Badge, Icon } from '../../../components/ui';
-import { Input } from '../../../components/ui/Input';
-import { Button } from '../../../components/ui/Button';
-import { SectionHeader } from '../../../components/ui/SectionHeader';
-import { EmptyState } from '../../../components/ui/EmptyState';
-import { useOnboardingStore } from '../../../store/onboardingStore';
-import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
-import { analyzeGoalFeasibility, GoalInput } from '../../../features/financial-engine/goalCalculations';
-import { formatCurrency } from '../../../utils/currency';
-import { CelebrationOverlay } from '../../../components/ui/CelebrationOverlay';
 
-interface UpcomingSuggestion {
-  id: string;
-  name: string;
-  amount: number;
-  dueDate: string;
-  category: string;
-}
+import AppText from '../../../components/Text/AppText';
+import { Button, Card, EmptyState, Input, ProgressBar } from '../../../components/ui';
+import { CelebrationOverlay } from '../../../components/ui/CelebrationOverlay';
+import { IncomeDatePicker } from '../../../components/ui/IncomeDatePicker';
+import { GOAL_CATEGORY_KEYS, GOAL_COLOR_KEYS, GOAL_VECTOR_KEYS, GoalCategoryKey, GoalColorKey, GoalVectorKey } from '../../../constants/goals';
+import { COLORS, RADIUS, SPACING } from '../../../constants/theme';
+import { analyzeGoalFeasibility } from '../../../features/financial-engine/goalCalculations';
+import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
+import { calculateActiveFinancialPeriod } from '../../../features/financial-engine/activePeriod';
+import { resolveIncomeTiming } from '../../../features/onboarding/incomeSchedule';
+import { useTabContentBottomInset } from '../../../hooks/useTabContentBottomInset';
+import { Goal, GoalPriority, GoalReminderFrequency, useGoalsStore } from '../../../store/goalsStore';
+import { useOnboardingStore } from '../../../store/onboardingStore';
+import { useNotificationPreferencesStore } from '../../../store/notificationPreferencesStore';
+import { useTransactionsStore } from '../../../store/transactionsStore';
+import { useBillsStore } from '../../../store/billsStore';
+import { ensureNotificationPermission } from '../../../services/notifications/billReminders';
+import { syncGoalReminders } from '../../../services/notifications/preferenceReminders';
+import { formatCurrency } from '../../../utils/currency';
+import { isFutureDate, parseFinancialAmount } from '../../../utils/financialValidation';
+
+const VECTOR_ICONS: Record<GoalVectorKey, any> = {
+  shield: 'shield-checkmark-outline', umbrella: 'umbrella-outline', medical_cross: 'medkit-outline', home: 'home-outline', key: 'key-outline', car: 'car-outline', maintenance: 'construct-outline', graduation_cap: 'school-outline', book: 'book-outline', school: 'library-outline', airplane: 'airplane-outline', suitcase: 'briefcase-outline', map: 'map-outline', family: 'people-outline', gift: 'gift-outline', wallet: 'wallet-outline', piggy_bank: 'cash-outline', debt_free: 'checkmark-done-outline', target: 'locate-outline', briefcase: 'briefcase-outline', store: 'storefront-outline', laptop: 'laptop-outline', heart: 'heart-outline', celebration: 'sparkles-outline', star: 'star-outline', custom_goal: 'flag-outline',
+};
+const COLOR_VALUES: Record<GoalColorKey, string> = { pocket_blue: '#1858EB', deep_navy: '#101B3A', positive_lime: '#95B51D', teal: '#008F83', violet: '#7256D8', amber: '#B7791F', coral: '#C65B46', rose: '#B84F76', sky: '#367DB5', neutral: '#667085' };
+const priorities: GoalPriority[] = ['essential', 'important', 'optional'];
+const reminders: GoalReminderFrequency[] = ['none', 'weekly', 'monthly', 'once'];
+const templates: { category: GoalCategoryKey; vectorKey: GoalVectorKey; colorKey: GoalColorKey }[] = [
+  { category: 'emergency_fund', vectorKey: 'shield', colorKey: 'positive_lime' },
+  { category: 'home', vectorKey: 'key', colorKey: 'pocket_blue' },
+  { category: 'education', vectorKey: 'graduation_cap', colorKey: 'violet' },
+  { category: 'vehicle', vectorKey: 'car', colorKey: 'teal' },
+  { category: 'travel', vectorKey: 'airplane', colorKey: 'sky' },
+  { category: 'debt_payoff', vectorKey: 'debt_free', colorKey: 'amber' },
+];
+
+type FormState = { id?: string; name: string; description: string; target: string; saved: string; date: string; category: GoalCategoryKey; vectorKey: GoalVectorKey; colorKey: GoalColorKey; priority: GoalPriority; reminder: GoalReminderFrequency; reminderDate: string };
+const blankForm = (): FormState => ({ name: '', description: '', target: '', saved: '', date: '', category: 'other', vectorKey: 'target', colorKey: 'pocket_blue', priority: 'important', reminder: 'none', reminderDate: '' });
 
 export default function GoalsScreen() {
+  const { t, i18n } = useTranslation();
+  const reduceMotion = useReducedMotion();
+  const contentBottomInset = useTabContentBottomInset();
   const { answers, debts } = useOnboardingStore();
-  const currencySymbol = answers['currency'] || 'MAD';
-
+  const locale = i18n.resolvedLanguage || i18n.language || 'en';
+  const currency = answers.currency || 'MAD';
   const profile = calculateFinancialProfile({ answers, debts });
-  const availableBalance = profile.realAvailableMonthlyBalance;
+  const transactions = useTransactionsStore((state) => state.transactions);
+  const bills = useBillsStore((state) => state.bills);
+  const today = new Date();
+  const nextIncomeDate = resolveIncomeTiming(answers, today).calculationDate;
+  const additionalCommitments = profile.monthlyAnnualExpensesPortion + profile.requiredUpcomingContributions;
+  const capacity = Math.max(0, calculateActiveFinancialPeriod({
+    periodStart: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10),
+    nextIncomeDate,
+    currentAvailableBalance: Number(answers.availableBalance ?? 0),
+    plannedIncome: profile.totalMonthlyIncome,
+    plannedEssential: Number(answers.essentialBillsDue ?? profile.essentialMonthlyExpenses),
+    plannedFlexible: profile.flexibleMonthlyExpenses + Number(answers.upcomingFlexibleSpending || 0),
+    plannedDebt: profile.minimumMonthlyDebtPayments + Number(answers.debtMinimumDue || 0),
+    protectedBuffer: Number(answers.protectedBuffer || 0) + Number(answers.savingsGoalAmount || 0),
+    currency,
+    transactions,
+    commitments: [
+      ...(additionalCommitments + Number(answers.annualExpenseDue || 0) > 0 ? [{ id: 'planned-commitments', amount: additionalCommitments + Number(answers.annualExpenseDue || 0), dueDate: nextIncomeDate, paid: false }] : []),
+      ...bills.filter((bill) => bill.isActive).map((bill) => ({ id: bill.id, amount: bill.amount, dueDate: bill.nextDueDate, paid: bill.paid })),
+    ],
+    now: today,
+  }).safeToSpendTotal);
+  const store = useGoalsStore();
+  const goalRemindersEnabled = useNotificationPreferencesStore((state) => state.goals);
+  const [status, setStatus] = useState<'active' | 'completed' | 'archived'>('active');
+  const [sort, setSort] = useState<'priority' | 'date' | 'progress'>('priority');
+  const [category, setCategory] = useState<'all' | GoalCategoryKey>('all');
+  const [form, setForm] = useState<FormState>(blankForm());
+  const [step, setStep] = useState(1);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [contributionGoal, setContributionGoal] = useState<Goal | null>(null);
+  const [contributionAmount, setContributionAmount] = useState('');
+  const [contributionNote, setContributionNote] = useState('');
+  const [editingContributionId, setEditingContributionId] = useState<string | null>(null);
+  const [historyGoal, setHistoryGoal] = useState<Goal | null>(null);
+  const [completedGoal, setCompletedGoal] = useState<Goal | null>(null);
+  const money = (value: number) => formatCurrency(value, currency, locale);
 
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'personal'>('upcoming');
-
-  const [goals, setGoals] = useState<GoalInput[]>([
-    { name: 'Emergency Protection Fund', targetAmount: 15000, alreadySaved: 3000, targetDate: '2027-07-13', isEssential: true, classification: 'essential', emoji: '🛡️' },
-    { name: 'New Laptop for Work', targetAmount: 8000, alreadySaved: 2000, targetDate: '2026-11-13', isEssential: false, classification: 'important', emoji: '💻' },
-  ]);
-
-  const [suggestions, setSuggestions] = useState<UpcomingSuggestion[]>([]);
-
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const list: UpcomingSuggestion[] = [];
-    if (answers.hasVehicle === 'yes' && answers.vehicleInsurance === true) {
-      list.push({
-        id: '1',
-        name: 'Annual Vehicle Insurance Premium',
-        amount: Number(answers.insuranceAmount || 2400),
-        dueDate: answers.insuranceDate || '2026-11-13',
-        category: 'Vehicle',
-      });
-    }
+    syncGoalReminders(store.goals, goalRemindersEnabled, (goal) => ({
+      title: t('notifications.goalTitle', 'Goal reminder'),
+      body: t('notifications.goalBody', '{{name}} is ready for a plan check.', { name: goal.name }),
+    })).catch(() => undefined);
+  }, [goalRemindersEnabled, store.goals, t]);
 
-    if (answers.hasVehicle === 'yes' && answers.roadTax === true) {
-      list.push({
-        id: '2',
-        name: 'Annual Road Tax / Vignette',
-        amount: Number(answers.taxAmount || 700),
-        dueDate: '2027-01-20',
-        category: 'Vehicle',
-      });
-    }
+  const visibleGoals = useMemo(() => store.goals
+    .filter((goal) => (status === 'active' ? goal.status === 'active' || goal.status === 'paused' : goal.status === status) && (category === 'all' || goal.category === category))
+    .sort((a, b) => sort === 'date'
+      ? a.targetDate.localeCompare(b.targetDate)
+      : sort === 'progress'
+        ? (b.alreadySaved / b.targetAmount) - (a.alreadySaved / a.targetAmount)
+        : priorities.indexOf(a.classification) - priorities.indexOf(b.classification)), [category, sort, status, store.goals]);
 
-    if (answers.culturalPref === 'muslim') {
-      list.push({
-        id: '3',
-        name: 'Ramadan Preparation & Feast',
-        amount: 1500,
-        dueDate: '2027-03-01',
-        category: 'Cultural',
-      });
-      list.push({
-        id: '4',
-        name: 'Eid al-Adha Sheep Purchase',
-        amount: 3000,
-        dueDate: '2027-05-15',
-        category: 'Cultural',
-      });
-    }
-
-    setSuggestions(list);
-  }, [answers]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  const [showGoalForm, setShowGoalForm] = useState(false);
-  const [goalName, setGoalName] = useState('');
-  const [targetAmount, setTargetAmount] = useState('');
-  const [alreadySaved, setAlreadySaved] = useState('');
-  const [targetDate, setTargetDate] = useState('');
-  const [classification, setClassification] = useState<'essential' | 'important' | 'optional'>('important');
-  const [goalEmoji, setGoalEmoji] = useState('💰');
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [contributeIndex, setContributeIndex] = useState<number | null>(null);
-  const [contributeAmount, setContributeAmount] = useState('');
-  const [activeMenuIndex, setActiveMenuIndex] = useState<number | null>(null);
-
-  const handleContribute = (index: number) => {
-    const amt = Number(contributeAmount);
-    if (isNaN(amt) || amt <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
-
-    const updated = [...goals];
-    const target = updated[index];
-    const oldSaved = target.alreadySaved;
-    target.alreadySaved = oldSaved + amt;
-
-    setGoals(updated);
-    setContributeIndex(null);
-    setContributeAmount('');
-
-    if (target.alreadySaved >= target.targetAmount && oldSaved < target.targetAmount) {
-      setShowCelebration(true);
+  const openCreate = () => { setForm(blankForm()); setStep(1); setEditorOpen(true); };
+  const openEdit = (goal: Goal) => {
+    setForm({ id: goal.id, name: goal.name, description: goal.description || '', target: String(goal.targetAmount), saved: String(goal.alreadySaved), date: goal.targetDate, category: goal.category, vectorKey: goal.vectorKey, colorKey: goal.colorKey, priority: goal.classification, reminder: goal.reminder.frequency, reminderDate: goal.reminder.date || '' });
+    setStep(1); setEditorOpen(true);
+  };
+  const validateAndSave = async () => {
+    const target = parseFinancialAmount(form.target, currency);
+    const saved = parseFinancialAmount(form.saved || '0', currency);
+    const error = !form.name.trim() ? t('goals.validation.title') : !target || target <= 0 ? t('goals.validation.target') : saved === null || saved < 0 ? t('goals.validation.saved') : !isFutureDate(form.date) ? t('goals.validation.date') : form.reminder === 'once' && !isFutureDate(form.reminderDate) ? t('goals.reminderDateValidation') : null;
+    if (error) return Alert.alert(t('common.error', 'Error'), error);
+    const values = { name: form.name.trim(), description: form.description.trim() || undefined, targetAmount: target!, alreadySaved: saved!, targetDate: form.date, isEssential: form.priority === 'essential', classification: form.priority, category: form.category, vectorKey: form.vectorKey, colorKey: form.colorKey, reminder: { frequency: form.reminder, date: form.reminder === 'once' ? form.reminderDate : undefined } };
+    if (form.reminder !== 'none') await ensureNotificationPermission().catch(() => false);
+    if (form.id) store.updateGoal(form.id, values); else store.addGoal(values);
+    setEditorOpen(false);
+  };
+  const contribute = () => {
+    if (!contributionGoal) return;
+    const amount = parseFinancialAmount(contributionAmount, currency);
+    if (!amount || amount <= 0) return Alert.alert(t('common.error', 'Error'), t('goals.validation.contribution'));
+    const wasCompleted = contributionGoal.status === 'completed';
+    if (editingContributionId) store.updateContribution(editingContributionId, amount, undefined, contributionNote);
+    else store.addContribution(contributionGoal.id, amount, undefined, contributionNote, `${contributionGoal.id}-${Date.now()}`);
+    const updated = useGoalsStore.getState().goals.find((item) => item.id === contributionGoal.id);
+    setContributionGoal(null); setContributionAmount(''); setContributionNote(''); setEditingContributionId(null);
+    if (!wasCompleted && updated?.status === 'completed' && !updated.celebrationShownAt) {
+      store.markCelebrationShown(updated.id);
+      setCompletedGoal(updated);
     }
   };
-
-  const handleAddGoal = () => {
-    if (!goalName || !targetAmount || !targetDate) {
-      Alert.alert('Error', 'Please fill in Name, Target, and Date');
-      return;
-    }
-    const targetAmt = Number(targetAmount);
-    const savedAmt = Number(alreadySaved || 0);
-
-    if (isNaN(targetAmt) || targetAmt <= 0 || isNaN(savedAmt) || savedAmt < 0) {
-      Alert.alert('Error', 'Amounts must be valid positive numbers');
-      return;
-    }
-
-    const newGoal: GoalInput = {
-      name: goalName,
-      targetAmount: targetAmt,
-      alreadySaved: savedAmt,
-      targetDate,
-      isEssential: classification === 'essential',
-      classification,
-      emoji: goalEmoji,
-    };
-
-    setGoals([...goals, newGoal]);
-    setGoalName('');
-    setTargetAmount('');
-    setAlreadySaved('');
-    setTargetDate('');
-    setClassification('important');
-    setGoalEmoji('💰');
-    setShowGoalForm(false);
+  const removeGoal = (goal: Goal) => Alert.alert(t('goals.delete'), t('goals.deleteConfirm'), [{ text: t('common.cancel', 'Cancel'), style: 'cancel' }, { text: t('goals.delete'), style: 'destructive', onPress: () => store.deleteGoal(goal.id) }]);
+  const completeGoal = (goal: Goal) => Alert.alert(t('goals.markComplete'), t('goals.completeConfirm'), [{ text: t('common.cancel', 'Cancel'), style: 'cancel' }, { text: t('goals.markComplete'), onPress: () => { store.setGoalStatus(goal.id, 'completed'); const updated = useGoalsStore.getState().goals.find((item) => item.id === goal.id); if (updated && !updated.celebrationShownAt) { store.markCelebrationShown(goal.id); setCompletedGoal(updated); } } }]);
+  const showHistory = (goal: Goal) => {
+    setHistoryGoal(goal);
   };
 
-  const handleDeleteGoalWithConfirm = (index: number) => {
-    const goal = goals[index];
-    Alert.alert(
-      `Delete "${goal.name}"?`,
-      'This will remove the goal and its contribution history. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete Goal', style: 'destructive', onPress: () => handleDeleteGoal(index) }
-      ]
-    );
-  };
+  return <SafeAreaView style={styles.screen}>
+    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: contentBottomInset }]}>
+      <View style={styles.header}><AppText variant="headlineMd" role="heading" aria-level={1}>{t('goals.title')}</AppText><Button title={t('goals.add')} onPress={openCreate} style={styles.headerButton} /></View>
+      <View style={styles.chips}>{(['active', 'completed', 'archived'] as const).map((item) => <Chip key={item} active={status === item} label={t(`goals.${item}`)} onPress={() => setStatus(item)} />)}</View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}><Chip active={category === 'all'} label={t('goals.allCategories')} onPress={() => setCategory('all')} />{GOAL_CATEGORY_KEYS.map((item) => <Chip key={item} active={category === item} label={t(`goals.categories.${item}`)} onPress={() => setCategory(item)} />)}</ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{(['priority', 'date', 'progress'] as const).map((item) => <Chip key={item} active={sort === item} label={t(`goals.sort.${item}`)} onPress={() => setSort(item)} />)}</ScrollView>
+      {visibleGoals.length === 0 ? <EmptyState icon="flag-outline" title={t('goals.empty')} description={t('goals.empty')} actionLabel={t('goals.add')} onAction={openCreate} /> : visibleGoals.map((goal) => {
+        const progress = goal.targetAmount > 0 ? Math.min(1, Math.max(0, goal.alreadySaved / goal.targetAmount)) : 0;
+        const analysis = analyzeGoalFeasibility(goal, capacity, goal.status);
+        const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${goal.targetDate}T12:00:00`));
+        return <Card key={goal.id} style={[styles.goalCard, { borderColor: COLOR_VALUES[goal.colorKey] }]}>
+          <View style={styles.goalHeader}><View style={[styles.iconBox, { backgroundColor: `${COLOR_VALUES[goal.colorKey]}22` }]}><Ionicons name={VECTOR_ICONS[goal.vectorKey]} size={26} color={COLOR_VALUES[goal.colorKey]} accessible accessibilityLabel={t(`goals.categories.${goal.category}`)} /></View><View style={styles.grow}><AppText variant="cardTitle">{goal.name}</AppText><AppText variant="caption">{t(`goals.categories.${goal.category}`)} · {t(`goals.priorities.${goal.classification}`)}</AppText></View><Pressable onPress={() => openEdit(goal)} style={styles.touch} accessibilityRole="button" accessibilityLabel={t('goals.edit')}><Ionicons name="create-outline" size={22} color={COLORS.surfaceTint} /></Pressable></View>
+          <AppText variant="bodySemiBold">{t('goals.savedOf', { saved: money(goal.alreadySaved), target: money(goal.targetAmount) })}</AppText>
+          <ProgressBar progress={progress} /><AppText variant="caption" accessibilityLabel={`${Math.round(progress * 100)}%`}>{Math.round(progress * 100)}% · {t('goals.due', { date })}</AppText>
+          <View style={styles.statusRow}><AppText variant="labelSm" style={{ color: COLOR_VALUES[goal.colorKey] }}>{t(`goals.statuses.${analysis.status}`)}</AppText><AppText variant="caption">{t('goals.requiredMonthly', { amount: money(analysis.requiredMonthlyContribution) })}</AppText></View>
+          <View style={styles.actions}>{goal.status !== 'completed' && <Button title={t('goals.contribution')} onPress={() => setContributionGoal(goal)} style={styles.flexButton} />}<Button title={t('goals.history')} variant="secondary" onPress={() => showHistory(goal)} style={styles.flexButton} /></View>
+          <View style={styles.actions}>{goal.status !== 'completed' && <Button title={t('goals.markComplete')} variant="text" onPress={() => completeGoal(goal)} style={styles.flexButton} />}<Button title={goal.status === 'paused' ? t('goals.resume') : t('goals.pause')} variant="text" onPress={() => store.setGoalStatus(goal.id, goal.status === 'paused' ? 'active' : 'paused')} style={styles.flexButton} /><Button title={t('goals.archive')} variant="text" onPress={() => store.setGoalStatus(goal.id, 'archived')} style={styles.flexButton} /><Button title={t('goals.delete')} variant="text" onPress={() => removeGoal(goal)} style={styles.flexButton} /></View>
+        </Card>;
+      })}
+    </ScrollView>
 
-  const handleDeleteGoal = (index: number) => {
-    setGoals(goals.filter((_, idx) => idx !== index));
-    setActiveMenuIndex(null);
-  };
+    <Modal visible={editorOpen} animationType="slide" onRequestClose={() => setEditorOpen(false)}><SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.modalContent}><AppText variant="sectionTitle" role="heading">{form.id ? t('goals.edit') : t('goals.add')}</AppText><AppText variant="caption">{step}/4</AppText>
+      {step === 1 && <><AppText variant="bodySemiBold">{t('goals.chooseCategory')}</AppText><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{templates.map((item) => <Chip key={item.category} active={form.category === item.category} label={t(`goals.categories.${item.category}`)} onPress={() => setForm({ ...form, name: t(`goals.categories.${item.category}`), category: item.category, vectorKey: item.vectorKey, colorKey: item.colorKey })} />)}</ScrollView><View style={styles.grid}>{GOAL_CATEGORY_KEYS.map((key) => <Picker key={key} active={form.category === key} label={t(`goals.categories.${key}`)} onPress={() => setForm({ ...form, category: key })} />)}</View></>}
+      {step === 2 && <><AppText variant="bodySemiBold">{t('goals.chooseStyle')}</AppText><View style={styles.iconGrid}>{GOAL_VECTOR_KEYS.map((key) => <Pressable key={key} onPress={() => setForm({ ...form, vectorKey: key })} style={[styles.vectorChoice, form.vectorKey === key && styles.selected]} accessibilityRole="radio" accessibilityState={{ checked: form.vectorKey === key }}><Ionicons name={VECTOR_ICONS[key]} size={25} color={COLOR_VALUES[form.colorKey]} /><AppText variant="caption">{t(`goals.vectors.${key}`)}</AppText></Pressable>)}</View><View style={styles.colorGrid}>{GOAL_COLOR_KEYS.map((key) => <Pressable key={key} onPress={() => setForm({ ...form, colorKey: key })} style={[styles.colorChoice, { backgroundColor: COLOR_VALUES[key] }, form.colorKey === key && styles.colorSelected]} accessibilityRole="radio" accessibilityLabel={t(`goals.colors.${key}`)} />)}</View></>}
+      {step === 3 && <><AppText variant="bodySemiBold">{t('goals.enterDetails')}</AppText><Input label={t('goals.name')} value={form.name} onChangeText={(name) => setForm({ ...form, name })} /><Input label={t('goals.description')} value={form.description} onChangeText={(description) => setForm({ ...form, description })} multiline /><Input label={`${t('goals.target')} (${currency})`} value={form.target} onChangeText={(target) => setForm({ ...form, target })} keyboardType="decimal-pad" /><Input label={`${t('goals.saved')} (${currency})`} value={form.saved} onChangeText={(saved) => setForm({ ...form, saved })} keyboardType="decimal-pad" /><IncomeDatePicker value={form.date} locale={locale} label={t('goals.date')} onChange={(date) => setForm({ ...form, date })} /></>}
+      {step === 4 && <><AppText variant="bodySemiBold">{t('goals.review')}</AppText><AppText variant="inputLabel">{t('goals.priority')}</AppText><View style={styles.chips}>{priorities.map((key) => <Chip key={key} active={form.priority === key} label={t(`goals.priorities.${key}`)} onPress={() => setForm({ ...form, priority: key })} />)}</View><AppText variant="inputLabel">{t('goals.reminder')}</AppText><View style={styles.chips}>{reminders.map((key) => <Chip key={key} active={form.reminder === key} label={t(key === 'none' ? 'goals.noReminder' : `goals.${key}`)} onPress={() => setForm({ ...form, reminder: key })} />)}</View>{form.reminder === 'once' && <IncomeDatePicker value={form.reminderDate} locale={locale} label={t('goals.reminderDate')} onChange={(reminderDate) => setForm({ ...form, reminderDate })} />}</>}
+      <View style={styles.actions}>{step > 1 && <Button title={t('goals.back')} variant="secondary" onPress={() => setStep(step - 1)} style={styles.flexButton} />}{step < 4 ? <Button title={t('goals.next')} onPress={() => setStep(step + 1)} style={styles.flexButton} /> : <Button title={form.id ? t('goals.update') : t('goals.save')} onPress={validateAndSave} style={styles.flexButton} />}</View><Button title={t('common.cancel', 'Cancel')} variant="text" onPress={() => setEditorOpen(false)} /></ScrollView></SafeAreaView></Modal>
 
-  const showContributionHistory = (goalName: string) => {
-    Alert.alert(
-      'Contribution History',
-      `History log for "${goalName}":\n\n• Initial Deposit: +${currencySymbol} 1,000 (Account Setup)\n• Auto-Save Contribution: +${currencySymbol} 500 (Last Month)\n• App Deposit contribution: +${currencySymbol} 700 (This Week)`,
-      [{ text: 'Close' }]
-    );
-  };
+    <Modal visible={Boolean(contributionGoal)} transparent animationType="fade" onRequestClose={() => setContributionGoal(null)}><View style={styles.overlay}><Card style={styles.dialog}><AppText variant="sectionTitle">{t('goals.contribution')}</AppText><Input label={`${t('goals.contributionAmount')} (${currency})`} value={contributionAmount} onChangeText={setContributionAmount} keyboardType="decimal-pad" /><Input label={t('goals.contributionNote')} value={contributionNote} onChangeText={setContributionNote} /><View style={styles.actions}><Button title={t('common.cancel', 'Cancel')} variant="secondary" onPress={() => setContributionGoal(null)} style={styles.flexButton} /><Button title={t('common.add', 'Add')} onPress={contribute} style={styles.flexButton} /></View></Card></View></Modal>
 
-  const handleMarkAsSaved = (index: number) => {
-    const goal = goals[index];
-    Alert.alert(
-      'Mark as Saved',
-      `Are you sure you want to mark "${goal.name}" as completed? This will update the saved amount to match the target.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            const updated = [...goals];
-            updated[index].alreadySaved = updated[index].targetAmount;
-            setGoals(updated);
-            setShowCelebration(true);
-          }
-        }
-      ]
-    );
-  };
+    <Modal visible={Boolean(historyGoal)} animationType="slide" onRequestClose={() => setHistoryGoal(null)}><SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.modalContent}><AppText variant="sectionTitle" role="heading">{t('goals.history')}</AppText>{store.contributions.filter((item) => item.goalId === historyGoal?.id).sort((a, b) => b.contributionDate.localeCompare(a.contributionDate)).map((item) => <Card key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}><View style={styles.grow}><AppText variant="bodySemiBold">{money(item.amount)}</AppText><AppText variant="caption">{new Intl.DateTimeFormat(locale).format(new Date(`${item.contributionDate}T12:00:00`))}{item.note ? ` · ${item.note}` : ''}</AppText></View><Pressable style={styles.touch} onPress={() => { setEditingContributionId(item.id); setContributionAmount(String(item.amount)); setContributionNote(item.note || ''); setContributionGoal(historyGoal); setHistoryGoal(null); }} accessibilityRole="button" accessibilityLabel={t('goals.editContribution')}><Ionicons name="create-outline" size={22} color={COLORS.surfaceTint} /></Pressable><Pressable style={styles.touch} onPress={() => store.deleteContribution(item.id)} accessibilityRole="button" accessibilityLabel={t('goals.deleteContribution')}><Ionicons name="trash-outline" size={22} color={COLORS.error} /></Pressable></Card>)}{!store.contributions.some((item) => item.goalId === historyGoal?.id) && <AppText variant="body">{t('goals.noHistory')}</AppText>}<Button title={t('common.close', 'Close')} onPress={() => setHistoryGoal(null)} /></ScrollView></SafeAreaView></Modal>
 
-  const handleDeleteSuggestion = (id: string) => {
-    setSuggestions(suggestions.filter((s) => s.id !== id));
-  };
-
-  const totalPlannedContributions = goals.reduce((sum, g) => {
-    const gAnalysis = analyzeGoalFeasibility(g, availableBalance);
-    return sum + gAnalysis.requiredMonthlyContribution;
-  }, 0);
-  const capacityDifference = availableBalance - totalPlannedContributions;
-  const isOvercommitted = totalPlannedContributions > availableBalance;
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Goals & Expenses</Text>
-            <Text style={styles.subtitle}>Set targets and prepare for annual cycles</Text>
-          </View>
-        </View>
-
-        {/* Tab Switcher */}
-        <View style={styles.tabSwitcher} accessibilityRole="tablist">
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'upcoming' && styles.tabItemActive]}
-            onPress={() => setActiveTab('upcoming')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'upcoming' }}
-          >
-            <Icon
-              name="calendar"
-              size={18}
-              color={activeTab === 'upcoming' ? COLORS.primary : COLORS.textSecondary}
-            />
-            <Text style={[styles.tabText, activeTab === 'upcoming' && styles.tabTextActive]}>
-              Upcoming
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'personal' && styles.tabItemActive]}
-            onPress={() => setActiveTab('personal')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'personal' }}
-          >
-            <Icon
-              name="trophy"
-              size={18}
-              color={activeTab === 'personal' ? COLORS.primary : COLORS.textSecondary}
-            />
-            <Text style={[styles.tabText, activeTab === 'personal' && styles.tabTextActive]}>
-              Personal Goals
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'upcoming' ? (
-          /* Tab 1: Upcoming Expenses Suggestions */
-          <View style={styles.suggestionsContainer}>
-            {suggestions.length === 0 ? (
-              <EmptyState
-                icon="calendar-outline"
-                title="No upcoming expenses"
-                description="We'll suggest annual cycles based on your profile."
-              />
-            ) : (
-              suggestions.map((item) => (
-                <Card key={item.id} style={styles.suggestionCard}>
-                  <View style={styles.suggestionRow}>
-                    <View style={[styles.suggestionIcon, { backgroundColor: COLORS.surfaceContainerLow }]}>
-                      <Icon name="calendar" size={20} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.suggestionMeta}>
-                      <Text style={styles.suggestionName}>{item.name}</Text>
-                      <Text style={styles.suggestionDate}>Due: {item.dueDate}</Text>
-                    </View>
-                    <View style={styles.suggestionActions}>
-                      <Text style={styles.suggestionAmount}>
-                        {formatCurrency(item.amount, currencySymbol)}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteSuggestion(item.id)}
-                        style={styles.deleteBtn}
-                        accessibilityRole="button"
-                        accessibilityLabel="Delete Suggestion"
-                      >
-                        <Icon name="trash" size={18} color={COLORS.textSecondary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </Card>
-              ))
-            )}
-          </View>
-        ) : (
-          /* Tab 2: Personal Goals */
-          <View style={styles.personalGoalsContainer}>
-            {/* Monthly Goals Feasibility Summary Card */}
-            <Card style={[styles.summaryCard, isOvercommitted && styles.summaryCardOvercommitted]}>
-              <View style={styles.summaryHeader}>
-                <Icon name="analytics" size={20} color={isOvercommitted ? COLORS.error : COLORS.primary} />
-                <Text style={styles.summaryTitle}>Monthly Savings Summary</Text>
-              </View>
-              
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Goal Contributions Planned:</Text>
-                <Text style={styles.summaryValue}>{formatCurrency(totalPlannedContributions, currencySymbol)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Safe Savings Capacity:</Text>
-                <Text style={styles.summaryValue}>{formatCurrency(availableBalance, currencySymbol)}</Text>
-              </View>
-              
-              <View style={styles.summaryDivider} />
-
-              {isOvercommitted ? (
-                <View style={styles.overcommitBox}>
-                  <View style={styles.overcommitTextRow}>
-                    <Icon name="warning" size={16} color={COLORS.error} style={{ marginRight: 6 }} />
-                    <Text style={styles.overcommitText}>
-                      You are overcommitted by <Text style={styles.overcommitBold}>{formatCurrency(Math.abs(capacityDifference), currencySymbol)}</Text> this month.
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.reviewPlanBtn}
-                    onPress={() => {
-                      Alert.alert(
-                        'Review Plan Recommendations',
-                        'To make your monthly goals affordable within your savings capacity, consider:\n\n1. Extending target deadlines for non-essential goals.\n2. Reducing the target amount of optional goals.\n3. Auditing flexible monthly spending on the Plan tab.',
-                        [{ text: 'Got it' }]
-                      );
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Review Plan"
-                  >
-                    <Text style={styles.reviewPlanBtnText}>Review Plan</Text>
-                    <Icon name="arrow-forward" size={14} color={COLORS.error} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.healthyBox}>
-                  <Icon name="shield-checkmark" size={16} color={COLORS.darkEmerald} style={{ marginRight: 6 }} />
-                  <Text style={styles.healthyText}>
-                    Your goals are affordable! You have <Text style={styles.healthyBold}>{formatCurrency(capacityDifference, currencySymbol)}</Text> safe savings margin left.
-                  </Text>
-                </View>
-              )}
-            </Card>
-
-            {/* Show Add Goal button */}
-            {!showGoalForm ? (
-              <Button
-                title="+ Add Goal"
-                onPress={() => setShowGoalForm(true)}
-                variant="secondary"
-                style={styles.showFormBtn}
-              />
-            ) : (
-              <Card style={styles.goalFormCard}>
-                <SectionHeader
-                  title="Create Goal"
-                  subtitle="Set a new savings target"
-                  icon="flag"
-                />
-                <Input label="Goal Name" value={goalName} onChangeText={setGoalName} placeholder="e.g. Vacation" />
-                <Input label={`Target Amount (${currencySymbol})`} value={targetAmount} onChangeText={setTargetAmount} placeholder="0.00" keyboardType="numeric" />
-                <Input label={`Already Saved (${currencySymbol})`} value={alreadySaved} onChangeText={setAlreadySaved} placeholder="0.00" keyboardType="numeric" />
-                <Input label="Target Date" value={targetDate} onChangeText={setTargetDate} placeholder="YYYY-MM-DD" />
-                
-                <View style={styles.emojiSection}>
-                  <Text style={styles.emojiLabel}>Choose Goal Emoji</Text>
-                  <View style={styles.emojiGrid}>
-                    {['💰', '🛡️', '🏠', '🚗', '💻', '✈️', '🎓', '🛍️', '💍', '🩺', '🎁'].map((item) => (
-                      <TouchableOpacity
-                        key={item}
-                        style={[styles.emojiItem, goalEmoji === item && styles.emojiItemActive]}
-                        onPress={() => setGoalEmoji(item)}
-                      >
-                        <Text style={styles.emojiText}>{item}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <View style={styles.customEmojiRow}>
-                    <Input
-                      label="Or Type Custom Emoji"
-                      value={goalEmoji}
-                      onChangeText={(val) => setGoalEmoji(val.trim().slice(0, 4))}
-                      containerStyle={styles.customEmojiInput}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.classificationContainer}>
-                  <Text style={styles.classificationLabel}>Goal Classification</Text>
-                  <View style={styles.classificationBtnRow}>
-                    {(['essential', 'important', 'optional'] as const).map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[
-                          styles.classBtn,
-                          classification === type && styles.classBtnActive,
-                        ]}
-                        onPress={() => setClassification(type)}
-                      >
-                        <Text style={[
-                          styles.classBtnText,
-                          classification === type && styles.classBtnTextActive,
-                        ]}>
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.formActions}>
-                  <Button title="Cancel" onPress={() => setShowGoalForm(false)} variant="text" />
-                  <Button title="Save Goal" onPress={handleAddGoal} variant="primary" style={styles.saveGoalBtn} />
-                </View>
-              </Card>
-            )}
-
-            {/* Render goals list */}
-            {goals.map((goal, idx) => {
-              const analysis = analyzeGoalFeasibility(goal, availableBalance);
-              const progress = goal.targetAmount > 0 ? goal.alreadySaved / goal.targetAmount : 0;
-              const currentClassification = goal.classification || (goal.isEssential ? 'essential' : 'important');
-
-              return (
-                <Card key={idx} style={styles.goalCard}>
-                  <View style={styles.goalHeader}>
-                    <View style={styles.goalTitleRow}>
-                      <Text style={styles.goalTitle}>
-                        {goal.emoji ? `${goal.emoji} ` : '🎯 '}{goal.name}
-                      </Text>
-                      <Badge label={currentClassification} type={currentClassification} />
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => setActiveMenuIndex(idx)}
-                      style={styles.moreOptionsBtn}
-                      accessibilityRole="button"
-                      accessibilityLabel="More Options"
-                    >
-                      <Icon name="more" size={20} color={COLORS.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text style={styles.goalTarget}>
-                    <Text style={styles.savedAmountHighlight}>{formatCurrency(goal.alreadySaved, currencySymbol)}</Text> saved of {formatCurrency(goal.targetAmount, currencySymbol)}
-                  </Text>
-
-                  <View style={styles.progressRow}>
-                    <Text style={styles.progressPct}>{Math.round(progress * 100)}%</Text>
-                    <View style={styles.progressBarContainer}>
-                      <ProgressBar progress={progress} height={6} color={COLORS.emerald} />
-                    </View>
-                  </View>
-
-                  <View style={styles.goalMetaRow}>
-                    <Text style={styles.goalDeadline}>
-                      {analysis.monthsRemaining} months remaining
-                    </Text>
-                    <Text style={[styles.monthlyReqVal, !analysis.isRealistic && { color: COLORS.error }]}>
-                      {formatCurrency(analysis.requiredMonthlyContribution, currencySymbol)} / month
-                    </Text>
-                  </View>
-
-                  {/* Add Contribution Inline Form */}
-                  {contributeIndex === idx ? (
-                    <View style={styles.contributeInlineRow}>
-                      <Input
-                        value={contributeAmount}
-                        onChangeText={setContributeAmount}
-                        placeholder="Amount"
-                        keyboardType="numeric"
-                        containerStyle={styles.contributeInput}
-                      />
-                      <Button title="Save" onPress={() => handleContribute(idx)} variant="primary" style={styles.contributeBtn} />
-                      <Button title="Cancel" onPress={() => setContributeIndex(null)} variant="text" />
-                    </View>
-                  ) : (
-                    <View style={styles.goalActionsContainer}>
-                      <TouchableOpacity
-                        style={styles.primaryAddContribBtn}
-                        onPress={() => {
-                          setContributeIndex(idx);
-                          setContributeAmount('');
-                        }}
-                      >
-                        <Icon name="add-circle" size={16} color={COLORS.onSecondaryFixed} />
-                        <Text style={styles.primaryAddContribBtnText}>Add Contribution</Text>
-                      </TouchableOpacity>
-
-                      <View style={styles.secondaryActionsRow}>
-                        <TouchableOpacity
-                          style={styles.secondaryGoalBtn}
-                          onPress={() => {
-                            Alert.alert(
-                              goal.name,
-                              `Goal Details:\n\n• Target: ${formatCurrency(goal.targetAmount, currencySymbol)}\n• Saved: ${formatCurrency(goal.alreadySaved, currencySymbol)}\n• Required Contribution: ${formatCurrency(analysis.requiredMonthlyContribution, currencySymbol)}/month\n• Timeline: ${analysis.monthsRemaining} months remaining\n• Feasible: ${analysis.isRealistic ? 'Yes' : 'No'}`,
-                              [{ text: 'Close' }]
-                            );
-                          }}
-                        >
-                          <Text style={styles.secondaryGoalBtnText}>View Details</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.secondaryGoalBtn}
-                          onPress={() => showContributionHistory(goal.name)}
-                        >
-                          <Text style={styles.secondaryGoalBtnText}>History</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.secondaryGoalBtn}
-                          onPress={() => handleMarkAsSaved(idx)}
-                        >
-                          <Text style={styles.secondaryGoalBtnText}>Complete</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Unrealistic warning alerts */}
-                  {!analysis.isRealistic && analysis.explanation && (
-                    <View style={styles.unrealisticBox}>
-                      <View style={styles.unrealisticHeaderRow}>
-                        <Icon name="warning" size={18} color="#B27B00" />
-                        <Text style={styles.unrealisticHeader}>Target is Unrealistic</Text>
-                      </View>
-                      <Text style={styles.unrealisticText}>{analysis.explanation}</Text>
-                      <View style={styles.unrealisticDivider} />
-                      <Text style={styles.suggestionsTitle}>Suggested Adjustments:</Text>
-                      {analysis.suggestions.map((s, i) => (
-                        <Text key={i} style={styles.suggestionText}>
-                          - {s.text}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-                </Card>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Card three-dot Modal menu overlay */}
-        <Modal
-          visible={activeMenuIndex !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setActiveMenuIndex(null)}
-        >
-          <Pressable style={styles.menuOverlay} onPress={() => setActiveMenuIndex(null)}>
-            <View style={styles.menuPanel}>
-              <View style={styles.menuPanelHeader}>
-                <View style={styles.menuHandle} />
-                <Text style={styles.menuPanelTitle}>Goal Options</Text>
-              </View>
-
-              {activeMenuIndex !== null && (
-                <>
-                  <TouchableOpacity
-                    style={styles.menuPanelItem}
-                    onPress={() => {
-                      const idx = activeMenuIndex;
-                      setActiveMenuIndex(null);
-                      const mAnalysis = analyzeGoalFeasibility(goals[idx], availableBalance);
-                      Alert.alert(
-                        goals[idx].name,
-                        `Goal Details:\n\n• Target: ${formatCurrency(goals[idx].targetAmount, currencySymbol)}\n• Saved: ${formatCurrency(goals[idx].alreadySaved, currencySymbol)}\n• Timeline: ${mAnalysis.monthsRemaining} months remaining`,
-                        [{ text: 'Close' }]
-                      );
-                    }}
-                  >
-                    <Icon name="info" size={20} color={COLORS.textPrimary} />
-                    <Text style={styles.menuPanelItemText}>View Details</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.menuPanelItem}
-                    onPress={() => {
-                      const idx = activeMenuIndex;
-                      setActiveMenuIndex(null);
-                      setContributeIndex(idx);
-                      setContributeAmount('');
-                    }}
-                  >
-                    <Icon name="edit" size={20} color={COLORS.textPrimary} />
-                    <Text style={styles.menuPanelItemText}>Edit Goal</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.menuPanelItem}
-                    onPress={() => {
-                      const idx = activeMenuIndex;
-                      setActiveMenuIndex(null);
-                      Alert.prompt(
-                        'Adjust Target',
-                        'Enter new target amount:',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Save',
-                            onPress: (val?: string) => {
-                              const amt = Number(val);
-                              if (!isNaN(amt) && amt > 0) {
-                                const updated = [...goals];
-                                updated[idx].targetAmount = amt;
-                                setGoals(updated);
-                              }
-                            }
-                          }
-                        ],
-                        'plain-text',
-                        String(goals[idx].targetAmount)
-                      );
-                    }}
-                  >
-                    <Icon name="trending-up" size={20} color={COLORS.textPrimary} />
-                    <Text style={styles.menuPanelItemText}>Adjust Target</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.menuPanelItem}
-                    onPress={() => {
-                      setActiveMenuIndex(null);
-                      Alert.alert('Pause Goal', 'This goal has been paused. Contributions auto-saves are temporarily disabled.', [{ text: 'Close' }]);
-                    }}
-                  >
-                    <Icon name="flag" size={20} color={COLORS.textSecondary} />
-                    <Text style={styles.menuPanelItemText}>Pause Goal</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.menuPanelItem, styles.menuPanelItemDestructive]}
-                    onPress={() => {
-                      const idx = activeMenuIndex;
-                      handleDeleteGoalWithConfirm(idx);
-                    }}
-                  >
-                    <Icon name="trash" size={20} color={COLORS.error} />
-                    <Text style={styles.menuPanelItemTextDestructive}>Delete Goal</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              <TouchableOpacity style={styles.menuPanelCancelBtn} onPress={() => setActiveMenuIndex(null)}>
-                <Text style={styles.menuPanelCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
-
-        {/* Bottom spacing to prevent floating tab bar clipping */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
-      <CelebrationOverlay active={showCelebration} onComplete={() => setShowCelebration(false)} />
-    </SafeAreaView>
-  );
+    <Modal visible={Boolean(completedGoal)} transparent animationType="fade"><View style={styles.overlay} accessibilityLiveRegion="assertive"><Card style={styles.dialog}><Ionicons name={VECTOR_ICONS[completedGoal?.vectorKey || 'target']} size={48} color={COLOR_VALUES[completedGoal?.colorKey || 'pocket_blue']} /><AppText variant="sectionTitle" role="heading">{t('goals.completedTitle')}</AppText><AppText variant="body">{t('goals.completedBody', { amount: money(completedGoal?.targetAmount || 0) })}</AppText><Button title={t('goals.createAnother')} onPress={() => { setCompletedGoal(null); openCreate(); }} /><Button title={t('goals.returnGoals')} variant="secondary" onPress={() => setCompletedGoal(null)} /></Card></View></Modal>
+    <CelebrationOverlay active={Boolean(completedGoal) && !reduceMotion} onComplete={() => undefined} />
+  </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-  },
-  scrollContent: {
-    padding: SPACING.lg,
-    gap: SPACING.lg,
-  },
-  header: {
-    marginBottom: SPACING.xs,
-  },
-  title: {
-    ...TYPOGRAPHY.headlineMd,
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    ...TYPOGRAPHY.labelSm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  tabSwitcher: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surfaceContainer,
-    borderRadius: RADIUS.md,
-    padding: 4,
-    gap: 4,
-  },
-  tabItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-  },
-  tabItemActive: {
-    backgroundColor: COLORS.surfaceContainerLowest,
-    ...SHADOWS.sm,
-  },
-  tabText: {
-    ...TYPOGRAPHY.labelSm,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-  },
-  suggestionsContainer: {
-    gap: SPACING.sm,
-  },
-  suggestionCard: {
-    padding: SPACING.md,
-  },
-  suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  suggestionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  suggestionMeta: {
-    flex: 1,
-  },
-  suggestionName: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-  },
-  suggestionDate: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  suggestionActions: {
-    alignItems: 'flex-end',
-    gap: SPACING.xs,
-  },
-  suggestionAmount: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-  },
-  deleteBtn: {
-    padding: SPACING.xs,
-  },
-  personalGoalsContainer: {
-    gap: SPACING.md,
-  },
-  showFormBtn: {
-    height: 44,
-    marginBottom: SPACING.xs,
-  },
-  goalFormCard: {
-    padding: SPACING.md,
-    gap: SPACING.sm,
-  },
-  emojiSection: {
-    marginTop: SPACING.xs,
-    gap: 4,
-  },
-  emojiLabel: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-  },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginVertical: 4,
-  },
-  emojiItem: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceContainer,
-  },
-  emojiItemActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
-  },
-  emojiText: {
-    fontSize: 18,
-  },
-  customEmojiRow: {
-    marginTop: 2,
-  },
-  customEmojiInput: {
-    width: '100%',
-  },
-  classificationContainer: {
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
-  },
-  classificationLabel: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-  },
-  classificationBtnRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  classBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceContainer,
-  },
-  classBtnActive: {
-    borderColor: COLORS.emerald,
-    backgroundColor: COLORS.mintBackground,
-  },
-  classBtnText: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textSecondary,
-    fontSize: 12,
-  },
-  classBtnTextActive: {
-    color: COLORS.darkEmerald,
-    fontWeight: '700',
-  },
-  formActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: SPACING.md,
-    marginTop: SPACING.xs,
-  },
-  saveGoalBtn: {
-    height: 36,
-  },
-  goalCard: {
-    padding: SPACING.md,
-    gap: SPACING.sm,
-  },
-  goalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  goalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    flex: 1,
-  },
-  goalTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 15,
-  },
-  moreOptionsBtn: {
-    padding: SPACING.xs,
-  },
-  goalTarget: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textSecondary,
-    fontSize: 13,
-  },
-  savedAmountHighlight: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginVertical: SPACING.xs,
-  },
-  progressPct: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    width: 32,
-  },
-  progressBarContainer: {
-    flex: 1,
-  },
-  goalMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  goalDeadline: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-  },
-  monthlyReqVal: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 13,
-  },
-  goalActionsContainer: {
-    gap: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
-  primaryAddContribBtn: {
-    height: 44,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.secondaryFixed,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-  },
-  primaryAddContribBtnText: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.onSecondaryFixed,
-    fontSize: 14,
-  },
-  secondaryActionsRow: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
-  secondaryGoalBtn: {
-    flex: 1,
-    height: 36,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surfaceContainerLow,
-  },
-  secondaryGoalBtnText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontSize: 11,
-  },
-  contributeInlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    marginTop: SPACING.sm,
-    width: '100%',
-  },
-  contributeInput: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  contributeBtn: {
-    height: 48,
-  },
-  unrealisticBox: {
-    backgroundColor: '#FFF8EA',
-    borderWidth: 1,
-    borderColor: COLORS.warning,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
-  },
-  unrealisticHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  unrealisticHeader: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: '#B27B00',
-  },
-  unrealisticText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textPrimary,
-    lineHeight: 18,
-  },
-  unrealisticDivider: {
-    height: 1,
-    backgroundColor: 'rgba(178, 123, 0, 0.15)',
-    marginVertical: SPACING.xs,
-  },
-  suggestionsTitle: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: '#B27B00',
-    marginBottom: 2,
-  },
-  suggestionText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textPrimary,
-    lineHeight: 16,
-    marginTop: 2,
-  },
-  // Summary Feasibility Card Styles
-  summaryCard: {
-    backgroundColor: COLORS.surfaceContainerLow,
-    borderColor: COLORS.outlineVariant,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    marginBottom: SPACING.xs,
-  },
-  summaryCardOvercommitted: {
-    borderColor: 'rgba(235, 87, 87, 0.3)',
-    backgroundColor: '#FFF5F5',
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    marginBottom: SPACING.sm,
-  },
-  summaryTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-  },
-  summaryValue: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 13,
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: COLORS.outlineVariant,
-    marginVertical: SPACING.xs,
-  },
-  overcommitBox: {
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
-  },
-  overcommitTextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  overcommitText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.error,
-    fontSize: 12,
-    flex: 1,
-  },
-  overcommitBold: {
-    fontWeight: '700',
-  },
-  reviewPlanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: RADIUS.sm,
-    backgroundColor: '#FFF2F2',
-  },
-  reviewPlanBtnText: {
-    ...TYPOGRAPHY.labelSm,
-    color: COLORS.error,
-    fontWeight: '700',
-  },
-  healthyBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  healthyText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.darkEmerald,
-    fontSize: 12,
-    flex: 1,
-  },
-  healthyBold: {
-    fontWeight: '700',
-  },
-  // Modal Dropdown Overlay Styles
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(7, 30, 61, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  menuPanel: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: RADIUS.lg,
-    borderTopRightRadius: RADIUS.lg,
-    padding: SPACING.md,
-    paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.md,
-  },
-  menuPanelHeader: {
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  menuHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.outlineVariant,
-    marginBottom: SPACING.xs,
-  },
-  menuPanelTitle: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textPrimary,
-    fontSize: 15,
-  },
-  menuPanelItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.outlineVariant,
-  },
-  menuPanelItemText: {
-    ...TYPOGRAPHY.bodyMedium,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-  },
-  menuPanelItemDestructive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.outlineVariant,
-  },
-  menuPanelItemTextDestructive: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.error,
-    fontSize: 14,
-  },
-  menuPanelCancelBtn: {
-    marginTop: SPACING.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surfaceContainerLow,
-  },
-  menuPanelCancelText: {
-    ...TYPOGRAPHY.bodySemiBold,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-});
+function Chip({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) { return <Pressable onPress={onPress} style={[styles.chip, active && styles.selected]} accessibilityRole="radio" accessibilityState={{ checked: active }}><AppText variant="labelSm">{label}</AppText></Pressable>; }
+function Picker({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) { return <Pressable onPress={onPress} style={[styles.picker, active && styles.selected]} accessibilityRole="radio" accessibilityState={{ checked: active }}><AppText variant="bodyMedium">{label}</AppText></Pressable>; }
+
+const styles = StyleSheet.create({ screen: { flex: 1, backgroundColor: COLORS.surface }, content: { padding: SPACING.lg, gap: SPACING.md }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm }, headerButton: { minHeight: 44 }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs }, chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: SPACING.md, borderWidth: 1, borderColor: COLORS.outlineVariant, borderRadius: RADIUS.round }, selected: { borderColor: COLORS.surfaceTint, backgroundColor: COLORS.primaryFixed }, goalCard: { gap: SPACING.sm, borderWidth: 1 }, goalHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }, iconBox: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md }, grow: { flex: 1 }, touch: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }, statusRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: SPACING.xs }, actions: { flexDirection: 'row', gap: SPACING.xs }, flexButton: { flex: 1, minHeight: 44 }, modalContent: { padding: SPACING.lg, gap: SPACING.md }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs }, picker: { width: '48%', minHeight: 52, justifyContent: 'center', padding: SPACING.sm, borderWidth: 1, borderColor: COLORS.outlineVariant, borderRadius: RADIUS.md }, iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs }, vectorChoice: { width: 88, minHeight: 72, alignItems: 'center', justifyContent: 'center', padding: SPACING.xs, borderWidth: 1, borderColor: COLORS.outlineVariant, borderRadius: RADIUS.md }, colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm }, colorChoice: { width: 48, height: 48, borderRadius: 24 }, colorSelected: { borderWidth: 4, borderColor: COLORS.textPrimary }, overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: SPACING.lg }, dialog: { gap: SPACING.md, alignItems: 'stretch' } });

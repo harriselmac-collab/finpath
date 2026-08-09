@@ -6,58 +6,66 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { useTranslation } from 'react-i18next';
+import { openSupportEmail } from '../../services/support/openSupportEmail';
 
 export default function ReportProblemScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!description.trim()) {
-      Alert.alert('Validation Error', 'Description is required.');
+      Alert.alert(t('common.error', 'Error'), t('support.report.descriptionRequired'));
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await openSupportEmail(t('support.report.emailSubject'), description.trim());
+    } catch {
+      Alert.alert(t('common.error', 'Error'), t('support.report.openFailed'));
+    } finally {
       setLoading(false);
-      Alert.alert(
-        'Problem Reported',
-        'Thank you for reporting the bug. We will look into it immediately.',
-        [{ text: 'OK', onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile') }]
-      );
-    }, 1000);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.accessibility.back')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Report a Problem</Text>
+        <Text style={styles.headerTitle}>{t('profile.rows.reportProblem')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>Describe Bug or Defect</Text>
+          <Text style={styles.sectionHeader}>{t('support.report.formTitle')}</Text>
           
           <View style={styles.field}>
-            <Text style={styles.label}>Problem Description</Text>
+            <Text style={styles.label}>{t('support.report.description')}</Text>
             <TextInput
               style={[styles.input, styles.multilineInput]}
               value={description}
               onChangeText={setDescription}
-              placeholder="What happened? What were you trying to achieve? Provide any relevant details..."
+              placeholder={t('support.report.descriptionPlaceholder')}
               placeholderTextColor={COLORS.textSecondary}
               multiline
               numberOfLines={6}
+              accessibilityLabel={t('support.report.description')}
             />
           </View>
 
           <Button
-            title={loading ? 'Reporting...' : 'Submit Bug Report'}
+            title={loading ? t('support.report.opening') : t('support.report.submit')}
             onPress={handleSubmit}
             disabled={loading}
           />

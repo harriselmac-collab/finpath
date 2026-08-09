@@ -1,69 +1,125 @@
-import { describe, expect, test } from '@jest/globals';
-import { getActiveQuestions, getQuestionSchema } from '../features/onboarding/quizFlow';
+import { describe, expect, jest, test } from '@jest/globals';
+import {
+  getActiveQuestions,
+  getQuestionSchema,
+  getResumeQuestionStep,
+  isMonthlyPlanReady,
+} from '../features/onboarding/quizFlow';
+import { useOnboardingStore } from '../store/onboardingStore';
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(async () => null),
+    setItem: jest.fn(async () => undefined),
+    removeItem: jest.fn(async () => undefined),
+  },
+}));
+
+const buildCompleteAnswers = () => {
+  const answers: Record<string, unknown> = {
+    language: 'en',
+    country: 'MA',
+    currency: 'MAD',
+    availableBalance: 1000,
+    nextIncomeDate: '2026-08-15',
+    mainIncome: 3000,
+    essentialBillsDue: 400,
+  };
+
+  let addedAnswer = true;
+  while (addedAnswer) {
+    addedAnswer = false;
+    getActiveQuestions(answers)
+      .filter((question) => question.required)
+      .forEach((question) => {
+        if (answers[question.id] !== undefined) return;
+        answers[question.id] = question.type === 'yes-no'
+          ? false
+          : question.type === 'currency' || question.type === 'number'
+            ? 0
+            : question.type === 'date'
+              ? '2026-01-01'
+              : question.options?.[0]?.value ?? 'Complete';
+        addedAnswer = true;
+      });
+  }
+
+  return answers;
+};
 
 describe('Onboarding Quiz Branching Logic & Validations', () => {
-  // Test Scenario: Vehicle ownership branching
-  test('should include vehicle financing questions only when hasVehicle is "yes"', () => {
-    // When user says YES to vehicle
-    const answersWithVehicle = { hasVehicle: 'yes' };
-    const activeQuestionsWithVehicle = getActiveQuestions(answersWithVehicle);
-    const vehicleFinancingQuestion = activeQuestionsWithVehicle.find(
-      (q) => q.id === 'vehicleFinancing'
-    );
-    expect(vehicleFinancingQuestion).toBeDefined();
+  test('keeps the dashboard usable when optional profile details are added later', () => {
+    useOnboardingStore.setState({
+      answers: {
+        groceries: 100,
+        ...buildCompleteAnswers(),
+      },
+      debts: [],
+      onboardingCompleted: true,
+    });
 
-    // When user says NO to vehicle
-    const answersWithoutVehicle = { hasVehicle: 'no' };
-    const activeQuestionsWithoutVehicle = getActiveQuestions(answersWithoutVehicle);
-    const missingVehicleFinancing = activeQuestionsWithoutVehicle.find(
-      (q) => q.id === 'vehicleFinancing'
-    );
-    expect(missingVehicleFinancing).toBeUndefined();
+    useOnboardingStore.getState().setAnswer('groceries', 150);
+    expect(useOnboardingStore.getState().onboardingCompleted).toBe(true);
+
+    useOnboardingStore.setState({
+      answers: {
+        ...buildCompleteAnswers(),
+      },
+      debts: [],
+      onboardingCompleted: true,
+    });
+    useOnboardingStore.getState().addDebt({
+      type: 'Credit card',
+      totalAmount: 1000,
+      minimumPayment: 60,
+      interestRate: 10,
+      dueDate: '15',
+      isOverdue: false,
+    });
+    expect(useOnboardingStore.getState().onboardingCompleted).toBe(true);
   });
 
-  // Test Scenario: Children school fees branching
-  test('should include childcare and school fees questions only when hasChildren is true', () => {
-    // Has children
-    const answersWithChildren = { hasChildren: true };
-    const activeWithChildren = getActiveQuestions(answersWithChildren);
-    const schoolFeesQuestion = activeWithChildren.find((q) => q.id === 'schoolFees');
-    expect(schoolFeesQuestion).toBeDefined();
+  test('should gate trusted monthly plan metrics until required answers are complete', () => {
+    const answers = buildCompleteAnswers();
 
-    // No children
-    const answersWithoutChildren = { hasChildren: false };
-    const activeWithoutChildren = getActiveQuestions(answersWithoutChildren);
-    const missingSchoolFees = activeWithoutChildren.find((q) => q.id === 'schoolFees');
-    expect(missingSchoolFees).toBeUndefined();
+    expect(isMonthlyPlanReady(answers, [], false)).toBe(false);
+    expect(isMonthlyPlanReady(answers, [], true)).toBe(true);
+
+    delete answers.availableBalance;
+    expect(isMonthlyPlanReady(answers, [], true)).toBe(false);
   });
 
-  // Test Scenario: Secondary income branching
-  test('should include secondary income amount only when hasIncome and hasSecondIncome are both true', () => {
-    // Has second income
-    const answersWithSecondIncome = { hasIncome: true, hasSecondIncome: true };
-    const activeWithSecond = getActiveQuestions(answersWithSecondIncome);
-    const secondIncomeAmt = activeWithSecond.find((q) => q.id === 'secondIncome');
-    expect(secondIncomeAmt).toBeDefined();
+  test('should accept answered zero values but require debt details when debt is declared', () => {
+    const answers = buildCompleteAnswers();
+    expect(isMonthlyPlanReady(answers, [], true)).toBe(true);
 
-    // No second income
-    const answersWithoutSecondIncome = { hasIncome: true, hasSecondIncome: false };
-    const activeWithoutSecond = getActiveQuestions(answersWithoutSecondIncome);
-    const missingSecondIncome = activeWithoutSecond.find((q) => q.id === 'secondIncome');
-    expect(missingSecondIncome).toBeUndefined();
+    answers.protectedBuffer = 0;
+    expect(isMonthlyPlanReady(answers, [], true)).toBe(true);
   });
 
-  // Test Scenario: Debts list branching
-  test('should include debts-list question only when hasDebt is true', () => {
-    // Has debt
-    const answersWithDebt = { hasDebt: true };
-    const activeWithDebt = getActiveQuestions(answersWithDebt);
-    const debtsList = activeWithDebt.find((q) => q.id === 'debts');
-    expect(debtsList).toBeDefined();
+  test('asks 15-18 meaningful questions without sensitive profile questions', () => {
+    const schedules = [
+      { incomeFrequency: 'monthly' },
+      { incomeFrequency: 'twiceMonthly' },
+      { incomeFrequency: 'irregular', incomeDateCertainty: 'exact' },
+      { incomeFrequency: 'irregular', incomeDateCertainty: 'notSure' },
+    ];
 
-    // No debt
-    const answersWithoutDebt = { hasDebt: false };
-    const activeWithoutDebt = getActiveQuestions(answersWithoutDebt);
-    const missingDebtsList = activeWithoutDebt.find((q) => q.id === 'debts');
-    expect(missingDebtsList).toBeUndefined();
+    schedules.forEach((answers) => {
+      const questions = getActiveQuestions(answers);
+      expect(questions.length).toBeGreaterThanOrEqual(15);
+      expect(questions.length).toBeLessThanOrEqual(18);
+      expect(questions.some(({ id }) => ['isMarried', 'hasChildren', 'employmentStatus', 'medicationExpenses'].includes(id))).toBe(false);
+    });
+  });
+
+  test('resumes stale saved progress at the first incomplete required question', () => {
+    const questions = getActiveQuestions({});
+
+    expect(getResumeQuestionStep(questions, {}, 26)).toBe(0);
+    expect(getResumeQuestionStep(questions, { language: 'en', country: 'MA' }, 7)).toBe(2);
+    expect(getResumeQuestionStep(getActiveQuestions(buildCompleteAnswers()), buildCompleteAnswers(), 7)).toBe(7);
   });
 
   // Test Scenario: Zod Validations
