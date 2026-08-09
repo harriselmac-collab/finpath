@@ -15,6 +15,7 @@ import { supportFormTranslations, supportSurfaceTranslations } from '../constant
 import { goalTranslations } from '../constants/translations/goals';
 import { incomeScheduleTranslations } from '../constants/translations/incomeSchedule';
 import { minimumOnboardingTranslations } from '../constants/translations/minimumOnboarding';
+import { syncStatusTranslations } from '../constants/translations/syncStatus';
 import { legalDocuments } from '../constants/legalDocuments';
 import { PROGRESSIVE_PROFILE_QUESTIONS } from '../features/onboarding/quizFlow';
 
@@ -137,6 +138,14 @@ describe('supported languages', () => {
 
     SUPPORTED_LANGUAGES.forEach(({ key }) => {
       expect(getTranslationKeys(goalTranslations[key]).sort()).toEqual(expectedKeys);
+    });
+  });
+
+  it('provides complete sync-status copy in every supported locale', () => {
+    const expectedKeys = getTranslationKeys(syncStatusTranslations.en).sort();
+
+    SUPPORTED_LANGUAGES.forEach(({ key }) => {
+      expect(getTranslationKeys(syncStatusTranslations[key]).sort()).toEqual(expectedKeys);
     });
   });
 

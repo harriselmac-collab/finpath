@@ -6,7 +6,7 @@
 - [x] `npx expo install --check` (dependencies match Expo SDK 57)
 - [x] `npx tsc --noEmit`
 - [x] `npm run lint`
-- [x] `npm test -- --runInBand` (30 suites, 138 tests)
+- [x] `npm test -- --runInBand` (31 suites, 143 tests)
 - [x] `npx expo export --platform web --clear` (47 static routes)
 - [x] Clean Android prebuild and inspect the merged release manifest.
 - [x] Build and install a debug Android APK on the API 37 emulator; verify a cold start without native or JavaScript errors.

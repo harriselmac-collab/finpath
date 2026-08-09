@@ -19,6 +19,7 @@ import { AppDialog, type AppDialogAction } from '../../../components/ui/AppDialo
 import { useTabContentBottomInset } from '../../../hooks/useTabContentBottomInset';
 import { formatCountryCurrency } from '../../../services/localization/countries';
 import { useProfileImageUri } from '../../../hooks/useProfileImageUri';
+import { resolveProfileDisplayName } from '../../../utils/profileDisplayName';
 
 interface DialogState {
   title: string;
@@ -47,6 +48,7 @@ export default function ProfileScreen() {
   const currentCurrencyCode = normalizeCurrencyCode(answers.currency);
   const currentRegion = formatCountryCurrency(answers.country, currentCurrencyCode, locale) || t('profile.region.notSet');
   const currentLanguage = getLanguageOption(i18n.resolvedLanguage || i18n.language).label;
+  const displayName = resolveProfileDisplayName(answers.preferredName, user, t('profile.guestUser'));
   const openProfileEditor = () => router.push('/profile/edit');
 
   const handleResetData = () => {
@@ -121,10 +123,7 @@ export default function ProfileScreen() {
   );
 
   const getInitials = () => {
-    if (answers.preferredName) {
-      return answers.preferredName.trim().substring(0, 2).toUpperCase();
-    }
-    return user?.email ? user.email.substring(0, 2).toUpperCase() : 'PA';
+    return displayName.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -162,7 +161,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <View style={styles.profileInfo}>
             <AppText variant="cardTitle" style={styles.profileName} numberOfLines={1} role="heading" aria-level={1}>
-              {answers.preferredName || t('profile.guestUser')}
+              {displayName}
             </AppText>
             <AppText variant="bodySemiBold" style={styles.profileMeta} numberOfLines={1}>
               {employmentLabel}
