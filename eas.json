@@ -12,7 +12,10 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://hvtmjkdldpijqwvbatpy.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_qRBsQsY-Qqw7sHw-etpIYA_Mb55XuSq",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "423722813251-ihpjde9unp70mlreq07164fubo9qcku1.apps.googleusercontent.com"
       },
       "android": {
         "buildType": "apk"
@@ -20,7 +23,10 @@
     },
     "production": {
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://hvtmjkdldpijqwvbatpy.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_qRBsQsY-Qqw7sHw-etpIYA_Mb55XuSq",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "423722813251-ihpjde9unp70mlreq07164fubo9qcku1.apps.googleusercontent.com"
       },
       "android": {
         "buildType": "app-bundle"
