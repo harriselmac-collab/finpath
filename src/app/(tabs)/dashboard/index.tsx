@@ -756,19 +756,26 @@ const styles = StyleSheet.create({
   },
   metaBlock: {
     minWidth: 0,
-    flex: 1,
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   metaRight: {
     alignItems: 'flex-end',
+    paddingLeft: SPACING.sm,
   },
   metaLabel: {
+    maxWidth: '100%',
+    flexShrink: 1,
     color: COLORS.textSecondary,
   },
   metaValue: {
+    maxWidth: '100%',
     marginTop: 2,
     color: COLORS.primary,
   },
   metaValueGreen: {
+    maxWidth: '100%',
     marginTop: 2,
     color: COLORS.surfaceTint,
   },
