@@ -28,11 +28,13 @@
 - [ ] Expo/EAS account linked; production signing credentials secured.
 - [ ] Monitored support/privacy/account-deletion email configured in EAS.
 - [ ] Publisher legal identity, address and governing law finalized in the app and privacy page.
-- [ ] Functional HTTPS privacy-policy and external account-deletion URLs hosted.
+- [x] Functional HTTPS URLs hosted and verified with HTTP 200:
+  - Privacy policy: `https://harriselmac-collab.github.io/pocket-ahead-legal/privacy-policy.html`
+  - Account deletion: `https://harriselmac-collab.github.io/pocket-ahead-legal/delete-account.html`
 - [ ] Supabase allowed redirect URLs include exactly:
   - `pocketahead://auth`
   - `pocketahead://auth/update-password`
-  - `https://harriselmac-collab.github.io/finpath/delete-account.html`
+  - `https://harriselmac-collab.github.io/pocket-ahead-legal/delete-account.html`
 - [ ] Supabase leaked-password protection enabled.
 - [ ] Data safety, Financial features, Content rating and App access forms match the release build.
 - [ ] Store screenshots, feature graphic and icon uploaded.

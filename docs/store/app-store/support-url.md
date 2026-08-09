@@ -5,8 +5,7 @@ Review notes for the Support URL metadata field.
 ---
 
 ## 1. Required Support URL
-The Support URL submitted to Apple App Store must match:
-`https://YOUR-DOMAIN.com/support`
+No public support page is configured because release 1.0.0 targets Android and web only. Create and verify a dedicated HTTPS support page before enabling an iOS release.
 
 ### Content on Support Page:
 * Searchable Frequently Asked Questions (FAQ) list.

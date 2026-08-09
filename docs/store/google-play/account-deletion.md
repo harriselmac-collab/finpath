@@ -10,7 +10,11 @@
 
 ## External deletion request
 
-The canonical page is `docs/delete-account.html`. It:
+The canonical source is `docs/delete-account.html`, published at:
+
+`https://harriselmac-collab.github.io/pocket-ahead-legal/delete-account.html`
+
+It:
 
 - Identifies **Pocket Ahead** and publisher **Kael Labs**.
 - Authenticates an existing user with email/password or Google through Supabase.
@@ -19,4 +23,4 @@ The canonical page is `docs/delete-account.html`. It:
 - Explains the data removed and the limited temporary retention of security logs and encrypted infrastructure backups.
 - Works without reinstalling Pocket Ahead.
 
-Before Play submission, publish the `docs` directory at a stable HTTPS URL, add that exact URL to the Supabase redirect allow list for Google OAuth, verify deletion with a disposable test account, and enter the URL in the Play Console Data safety form.
+Before Play submission, add that exact URL to the Supabase redirect allow list for Google OAuth, verify deletion with a disposable test account, and enter the URL in the Play Console Data safety form.
