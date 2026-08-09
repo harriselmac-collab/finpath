@@ -6,7 +6,7 @@
 - [x] `npx expo install --check` (dependencies match Expo SDK 57)
 - [x] `npx tsc --noEmit`
 - [x] `npm run lint`
-- [x] `npm test -- --runInBand` (31 suites, 143 tests)
+- [x] `npm test -- --runInBand` (31 suites, 145 tests)
 - [x] `npx expo export --platform web --clear` (47 static routes)
 - [x] Clean Android prebuild and inspect the merged release manifest.
 - [x] Build and install a debug Android APK on the API 37 emulator; verify a cold start without native or JavaScript errors.
@@ -22,7 +22,8 @@
 - [ ] Create/edit/delete transactions, bills, debts and goals; restart the app; verify persistence and synchronization.
 - [ ] Offline edits followed by reconnect and conflict synchronization.
 - [x] Native system light/dark startup and the language selector's flag rendering.
-- [ ] All nine languages, Arabic RTL/Cairo typography, font scaling and reduced motion.
+- [x] Arabic RTL/Cairo typography, including the welcome screen and language-change restart prompt.
+- [ ] Full manual walkthroughs in the other eight languages, font scaling and reduced motion.
 - [ ] Profile image upload/change/remove.
 - [ ] JSON data export opens the native share sheet.
 - [ ] Account deletion removes remote and local data.

@@ -29,7 +29,11 @@
     "description": "Pocket Ahead n'est pas un simple suivi de dépenses. Nous apprenons à vous connaître, comprenons votre situation de vie et créons un parcours financier réaliste et honnête qui fonctionne vraiment.",
     "getStarted": "Commencer",
     "signIn": "J'ai déjà un compte",
-    "privacyNotice": "Vos données sont privées et stockées de manière sécurisée."
+    "privacyNotice": "Vos données sont privées et stockées de manière sécurisée.",
+    "wealthGrowth": "Croissance du patrimoine",
+    "referenceTitle": "Un plan financier conçu pour votre vie réelle.",
+    "referenceDescription": "Prenez le contrôle de votre avenir avec un parcours personnalisé. Planifiez vos dépenses, suivez vos objectifs et gagnez en stabilité à chaque décision.",
+    "financialGrowthPath": "Trajectoire de croissance financière"
   },
   "auth": {
     "title": "Pocket Ahead",

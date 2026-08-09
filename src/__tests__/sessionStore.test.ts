@@ -66,7 +66,7 @@ describe('session restoration trust', () => {
 
   test('clears an invalid restored session', async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session }, error: null });
-    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: new Error('expired') as any });
+    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'expired', code: 'bad_jwt', status: 401 } as any });
 
     useSessionStore.getState().initializeAuth();
     await flush();
@@ -74,6 +74,22 @@ describe('session restoration trust', () => {
     expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(useSessionStore.getState().session).toBeNull();
     expect(useSessionStore.getState().authStatus).toBe('unauthenticated');
+  });
+
+  test('keeps a cached session when validation fails because the network is offline', async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session }, error: null });
+    mockAuth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'fetch failed', name: 'AuthRetryableFetchError', status: 0 } as any,
+    });
+
+    useSessionStore.getState().initializeAuth();
+    await flush();
+
+    expect(mockAuth.signOut).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().session).toBe(session);
+    expect(useSessionStore.getState().user?.id).toBe('user-1');
+    expect(useSessionStore.getState().authStatus).toBe('offline');
   });
 
   test('leaves the loading state when session initialization rejects', async () => {

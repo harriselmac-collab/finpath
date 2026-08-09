@@ -23,6 +23,7 @@ export default function LanguageScreen() {
     try {
       await AsyncStorage.setItem('user-language', lang);
       await i18n.changeLanguage(lang);
+      const translated = i18n.getFixedT(lang);
       
       const isRTL = isRtlLanguage(lang);
       
@@ -38,8 +39,8 @@ export default function LanguageScreen() {
         
         if (Platform.OS !== 'web') {
           Alert.alert(
-            t('common.reloadRequired', 'Reload Required'),
-            t('common.reloadRequiredMsg', 'Please restart the application to apply the Right-To-Left layout changes.')
+            translated('common.reloadRequired', 'Reload Required'),
+            translated('common.reloadRequiredMsg', 'Please restart the application to apply the Right-To-Left layout changes.'),
           );
         } else {
           window.location.reload();
@@ -48,7 +49,7 @@ export default function LanguageScreen() {
         if (Platform.OS === 'web') {
           window.location.reload();
         } else {
-          Alert.alert(t('common.success', 'Success'), t('common.languageUpdated', 'Language updated successfully.'));
+          Alert.alert(translated('common.success', 'Success'), translated('common.languageUpdated', 'Language updated successfully.'));
         }
       }
     } catch {

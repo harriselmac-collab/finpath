@@ -18,6 +18,10 @@ import { minimumOnboardingTranslations } from '../constants/translations/minimum
 import { syncStatusTranslations } from '../constants/translations/syncStatus';
 import { legalDocuments } from '../constants/legalDocuments';
 import { PROGRESSIVE_PROFILE_QUESTIONS } from '../features/onboarding/quizFlow';
+import en from '../constants/translations/en.json';
+import fr from '../constants/translations/fr.json';
+import ar from '../constants/translations/ar.json';
+import { additionalTranslations } from '../constants/translations/additional';
 
 const getTranslationKeys = (value: object, prefix = ''): string[] =>
   Object.entries(value).flatMap(([key, child]) => {
@@ -146,6 +150,27 @@ describe('supported languages', () => {
 
     SUPPORTED_LANGUAGES.forEach(({ key }) => {
       expect(getTranslationKeys(syncStatusTranslations[key]).sort()).toEqual(expectedKeys);
+    });
+  });
+
+  it('localizes every visible welcome-screen message in every supported locale', () => {
+    const welcomeTranslations = {
+      en: en.welcome,
+      fr: fr.welcome,
+      ar: ar.welcome,
+      es: additionalTranslations.es.welcome,
+      de: additionalTranslations.de.welcome,
+      pt: additionalTranslations.pt.welcome,
+      it: additionalTranslations.it.welcome,
+      nl: additionalTranslations.nl.welcome,
+      tr: additionalTranslations.tr.welcome,
+    };
+    const requiredKeys = ['wealthGrowth', 'referenceTitle', 'referenceDescription', 'financialGrowthPath'] as const;
+
+    SUPPORTED_LANGUAGES.forEach(({ key }) => {
+      requiredKeys.forEach((translationKey) => {
+        expect(welcomeTranslations[key][translationKey].trim()).not.toBe('');
+      });
     });
   });
 

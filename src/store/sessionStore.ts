@@ -27,6 +27,21 @@ export type AuthStatus =
   | 'serviceUnavailable'
   | 'error';
 
+const invalidSessionCodes = new Set([
+  'bad_jwt',
+  'refresh_token_already_used',
+  'refresh_token_not_found',
+  'session_not_found',
+  'user_not_found',
+]);
+
+const shouldInvalidateSession = (error: unknown) => {
+  const authError = error as { code?: string; status?: number } | null;
+  return authError?.status === 401
+    || authError?.status === 403
+    || (typeof authError?.code === 'string' && invalidSessionCodes.has(authError.code));
+};
+
 interface SessionState {
   session: Session | null;
   user: User | null;
@@ -81,6 +96,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       if (session) {
         const { error: validationError } = await supabase.auth.getUser();
         if (validationError) {
+          if (!shouldInvalidateSession(validationError)) {
+            setActiveFinancialOwner(session.user.id);
+            set({
+              session,
+              user: session.user,
+              loading: false,
+              authStatus: 'offline',
+              authError: 'Your cached session could not be verified while offline.',
+            });
+            return;
+          }
           await supabase.auth.signOut({ scope: 'local' });
           set({
             session: null,

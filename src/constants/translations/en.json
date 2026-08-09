@@ -29,7 +29,11 @@
     "description": "Pocket Ahead is not a generic expense tracker. We interview you, understand your complete life situation, and build a realistic, honest financial path that actually works.",
     "getStarted": "Get Started",
     "signIn": "I already have an account",
-    "privacyNotice": "Your data is private and stored securely."
+    "privacyNotice": "Your data is private and stored securely.",
+    "wealthGrowth": "Wealth growth",
+    "referenceTitle": "A financial plan built around your real life.",
+    "referenceDescription": "Take control of your future with a personalized roadmap. Plan your spending, track your goals, and find stability in every decision.",
+    "financialGrowthPath": "Financial growth path"
   },
   "auth": {
     "title": "Pocket Ahead",

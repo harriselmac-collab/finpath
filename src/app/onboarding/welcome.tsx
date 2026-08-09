@@ -56,7 +56,7 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(240).delay(40)} style={styles.visual}>
-          <Svg width="100%" height={230} viewBox="0 0 340 230" accessibilityLabel="Financial growth path">
+          <Svg width="100%" height={230} viewBox="0 0 340 230" accessibilityLabel={t('welcome.financialGrowthPath')}>
             <Path
               d="M18 201 C92 204 95 40 174 38 C246 36 235 177 322 181"
               fill="none"
