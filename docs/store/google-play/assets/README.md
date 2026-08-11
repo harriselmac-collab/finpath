@@ -11,7 +11,7 @@ These files are ready to upload to the English (United States) Play Store listin
 - `screenshots/en-US/03-transactions.png` - 1080 x 1920, 24-bit PNG without alpha.
 - `screenshots/en-US/04-languages.png` - 1080 x 1920, 24-bit PNG without alpha.
 
-The icon uses the Pocket Ahead vector mark from `assets/branding/app-icon-source.svg`. The feature graphic uses the existing Pocket Ahead wordmark and exact brand palette; it does not add claims or third-party artwork. The screenshots are captures of the Android app UI, not promotional mockups.
+The icon uses the supplied Pocket Ahead artwork from `assets/branding/app-icon-source.png`. The feature graphic uses the existing Pocket Ahead wordmark and exact brand palette; it does not add claims or third-party artwork. The screenshots are captures of the Android app UI, not promotional mockups.
 
 ## Suggested alt text
 
