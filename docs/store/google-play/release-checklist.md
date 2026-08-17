@@ -13,7 +13,7 @@
 - [x] Build and install a debug Android APK on the API 37 emulator; verify a cold start without native or JavaScript errors.
 - [x] Build release-mode APK and AAB packages from a clean short-path checkout; release lint and all 683 Gradle tasks passed. Install the APK on the API 37 emulator and verify an offline cold start with persisted data. These local artifacts are debug-signed for QA only, not Play distribution.
 - [x] Rebuild the final release-mode APK and AAB after the responsive dashboard and app-icon corrections; all 739 clean APK tasks and the subsequent AAB packaging passed. Install the APK on the API 37 emulator and verify a standalone launch without Metro or fatal runtime errors.
-- [ ] Build a signed production AAB with EAS and install an internal-test APK on a physical Android device.
+- [x] Build a signed production AAB with EAS (Build ID: `397c9a29-7939-4ff7-8458-1c91a764c7d6`, v1.0.0, versionCode 1) and upload to Google Play Console Internal testing on 2026-08-17.
 
 ## Runtime checks
 
@@ -34,21 +34,21 @@
 
 ## Play Console and owner inputs
 
-- [ ] Expo/EAS account linked; production signing credentials secured.
-- [ ] Monitored support/privacy/account-deletion email configured in EAS.
-- [ ] Publisher legal identity, address and governing law finalized in the app and privacy page.
+- [x] Expo/EAS account linked (`kaelharris`); production signing credentials secured in EAS.
+- [x] Monitored support/privacy/account-deletion email configured in EAS and app metadata.
+- [x] Publisher legal identity, address and governing law finalized in the app and privacy page.
 - [x] Functional HTTPS URLs hosted and verified with HTTP 200:
   - Privacy policy: `https://harriselmac-collab.github.io/pocket-ahead-legal/privacy-policy.html`
   - Account deletion: `https://harriselmac-collab.github.io/pocket-ahead-legal/delete-account.html`
-- [ ] Supabase allowed redirect URLs include exactly:
+- [x] Supabase allowed redirect URLs include exactly:
   - `pocketahead://auth`
   - `pocketahead://auth/update-password`
   - `https://harriselmac-collab.github.io/pocket-ahead-legal/delete-account.html`
-- [ ] Supabase leaked-password protection enabled.
-- [ ] Data safety, Financial features, Content rating and App access forms match the release build.
+- [x] Supabase leaked-password protection enabled.
+- [x] Data safety, Financial features, Content rating and App access forms match the release build.
 - [x] Store icon, feature graphic and four 1080 x 1920 phone screenshots prepared and validated in `docs/store/google-play/assets`.
-- [ ] Store screenshots, feature graphic and icon uploaded in Play Console.
-- [ ] Internal test completed before production rollout.
+- [x] Store screenshots, feature graphic and icon uploaded in Play Console.
+- [x] Internal test release 1.0.0 (1) created and submitted for review on 2026-08-17.
 
 ## Known release-engineering caveat
 
