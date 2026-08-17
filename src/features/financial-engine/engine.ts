@@ -122,16 +122,17 @@ export const calculateFinancialProfile = (
           .map(({ amount }) => Number(amount) || 0),
       )
     : calculatedEssentialExpenses;
+  const detailedFlexibleExpenses = safeSum([
+    Number(answers.subscriptions || 0),
+    Number(answers.otherBills || 0),
+  ]);
   const flexibleMonthlyExpenses = reviewedExpenses
     ? safeSum(
         reviewedExpenses
           .filter(({ id, isEssential }) => !isEssential && id !== 'vehicleLoan' && id !== 'debtsMinimum')
           .map(({ amount }) => amount),
       )
-    : safeSum([
-        Number(answers.subscriptions || 0),
-        Number(answers.otherBills || 0),
-      ]);
+    : detailedFlexibleExpenses || Number(answers.upcomingFlexibleSpending || 0);
 
   // 3. Minimum Monthly Debt Payments
   // Include vehicle financing loans if answers indicate vehicle loan
@@ -140,7 +141,8 @@ export const calculateFinancialProfile = (
     : 0;
 
   const standardDebtsMinimum = debts.reduce((sum, d) => safeAdd(sum, d.minimumPayment), 0);
-  const minimumMonthlyDebtPayments = safeAdd(standardDebtsMinimum, vehicleLoanPayment);
+  const detailedDebtPayments = safeAdd(standardDebtsMinimum, vehicleLoanPayment);
+  const minimumMonthlyDebtPayments = detailedDebtPayments || Number(answers.debtMinimumDue || 0);
 
   // 4. Monthly portions of annual expenses
   let monthlyAnnualExpensesPortion = 0;

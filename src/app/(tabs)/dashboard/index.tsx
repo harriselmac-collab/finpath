@@ -1,20 +1,27 @@
-import React, { useState } from 'react';
-import { I18nManager, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { I18nManager, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppText from '../../../components/Text/AppText';
 import { Button, Card, Icon, PressableCard } from '../../../components/ui';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
-import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
-import { calculateActiveFinancialPeriod } from '../../../features/financial-engine/activePeriod';
+import { calculateActiveFinancialPlan } from '../../../features/financial-engine/activeFinancialPlan';
 import {
   hasRequiredMonthlyPlanInputs,
   isMonthlyPlanReady,
 } from '../../../features/onboarding/quizFlow';
-import { resolveIncomeTiming } from '../../../features/onboarding/incomeSchedule';
 import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useTransactionsStore } from '../../../store/transactionsStore';
 import { useBillsStore } from '../../../store/billsStore';
@@ -32,6 +39,7 @@ export default function DashboardScreen() {
   const { width, fontScale } = useWindowDimensions();
   const contentBottomInset = useTabContentBottomInset();
   const [setupExpanded, setSetupExpanded] = useState(false);
+  const chevronRotation = useSharedValue(0);
   const { answers, debts, onboardingCompleted } = useOnboardingStore();
   const { transactions } = useTransactionsStore();
   const currency = answers.currency || 'MAD';
@@ -39,13 +47,31 @@ export default function DashboardScreen() {
   const goals = useGoalsStore((state) => state.goals);
   const locale = i18n.resolvedLanguage || i18n.language || 'en';
 
-  const profile = calculateFinancialProfile({ answers, debts });
-  const additionalCommitments = profile.monthlyAnnualExpensesPortion
-    + profile.requiredUpcomingContributions;
+  useEffect(() => {
+    const target = setupExpanded ? 180 : 0;
+    chevronRotation.value = reduceMotion
+      ? target
+      : withTiming(target, {
+          duration: 180,
+          easing: Easing.bezier(0.77, 0, 0.175, 1),
+        });
+  }, [chevronRotation, reduceMotion, setupExpanded]);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRotation.value}deg` }],
+  }));
+
+  const today = new Date();
+  const { profile, additionalCommitments, incomeTiming, activePeriod } = calculateActiveFinancialPlan({
+    answers,
+    debts,
+    transactions,
+    bills,
+    now: today,
+  });
   const isPlanReady = isMonthlyPlanReady(answers, debts, onboardingCompleted);
   const hasRequiredInputs = hasRequiredMonthlyPlanInputs(answers, debts);
 
-  const today = new Date();
   const monthName = new Intl.DateTimeFormat(locale, { month: 'long' }).format(today);
   const firstName = typeof answers.preferredName === 'string'
     ? answers.preferredName.trim()
@@ -59,33 +85,6 @@ export default function DashboardScreen() {
     || profile.flexibleMonthlyExpenses > 0
     || profile.minimumMonthlyDebtPayments > 0
     || additionalCommitments > 0;
-  const periodStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-  const incomeTiming = resolveIncomeTiming(answers, today);
-  const nextIncomeDate = incomeTiming.calculationDate;
-  const activePeriod = calculateActiveFinancialPeriod({
-    periodStart,
-    nextIncomeDate,
-    currentAvailableBalance: Number(answers.availableBalance ?? 0),
-    plannedIncome: profile.totalMonthlyIncome,
-    plannedEssential: Number(answers.essentialBillsDue ?? profile.essentialMonthlyExpenses),
-    plannedFlexible: profile.flexibleMonthlyExpenses + Number(answers.upcomingFlexibleSpending || 0),
-    plannedDebt: profile.minimumMonthlyDebtPayments + Number(answers.debtMinimumDue || 0),
-    protectedBuffer: Number(answers.protectedBuffer || 0) + Number(answers.savingsGoalAmount || 0),
-    currency,
-    transactions,
-    commitments: [
-      ...(additionalCommitments + Number(answers.annualExpenseDue || 0) > 0
-        ? [{ id: 'planned-commitments', amount: additionalCommitments + Number(answers.annualExpenseDue || 0), dueDate: nextIncomeDate, paid: false }]
-        : []),
-      ...bills.filter((bill) => bill.isActive).map((bill) => ({
-        id: bill.id,
-        amount: bill.amount,
-        dueDate: bill.nextDueDate,
-        paid: bill.paid,
-      })),
-    ],
-    now: today,
-  });
   const hasShortfall = activePeriod.safeToSpendTotal < 0;
   const formattedNextIncome = incomeTiming.expectedDate
     ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
@@ -176,7 +175,24 @@ export default function DashboardScreen() {
 
   const enter = (delay = 0) => reduceMotion
     ? undefined
-    : FadeInUp.duration(ENTRY_DURATION).delay(delay);
+    : (Platform.OS === 'web'
+      ? FadeIn.duration(ENTRY_DURATION)
+      : FadeInUp.duration(ENTRY_DURATION).withInitialValues({
+          opacity: 0,
+          transform: [{ translateY: 8 }],
+        }))
+        .delay(delay)
+        .easing(Easing.bezier(0.23, 1, 0.32, 1));
+  const setupEnter = reduceMotion
+    ? FadeIn.duration(160).easing(Easing.ease)
+    : (Platform.OS === 'web'
+      ? FadeIn.duration(200)
+      : FadeInUp.duration(200).withInitialValues({
+          opacity: 0,
+          transform: [{ translateY: -8 }],
+        }))
+        .easing(Easing.bezier(0.23, 1, 0.32, 1));
+  const setupExit = FadeOut.duration(reduceMotion ? 120 : 150).easing(Easing.ease);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -277,7 +293,7 @@ export default function DashboardScreen() {
                   </AppText>
                 </View>
                 <AppText
-                  variant="financialAmount"
+                  variant="amountLg"
                   style={[
                     styles.balanceAmount,
                     hasShortfall && styles.negativeAmount,
@@ -379,16 +395,22 @@ export default function DashboardScreen() {
                       {t('onboarding.progressive.subtitle', { done: completedSetup, total: progressiveSetup.length })}
                     </AppText>
                   </View>
-                  <Icon name={setupExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.surfaceTint} />
+                  <Animated.View style={chevronStyle}>
+                    <Icon name="chevron-down" size={20} color={COLORS.surfaceTint} />
+                  </Animated.View>
                 </Pressable>
                 <ProgressBar progress={completedSetup / progressiveSetup.length} height={5} />
                 <AppText variant="caption" style={styles.progressiveWhy}>{t('onboarding.progressive.why')}</AppText>
-                {setupExpanded && nextSetup.map((item) => (
-                  <Pressable key={item.key} onPress={() => router.push(item.href)} style={styles.setupRow} accessibilityRole="button">
-                    <AppText variant="bodyMedium" style={styles.setupRowText}>{t(`onboarding.progressive.${item.key}`)}</AppText>
-                    <Icon name={I18nManager.isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={COLORS.surfaceTint} />
-                  </Pressable>
-                ))}
+                {setupExpanded && (
+                  <Animated.View entering={setupEnter} exiting={setupExit} style={styles.setupRows}>
+                    {nextSetup.map((item) => (
+                      <Pressable key={item.key} onPress={() => router.push(item.href)} style={styles.setupRow} accessibilityRole="button">
+                        <AppText variant="bodyMedium" style={styles.setupRowText}>{t(`onboarding.progressive.${item.key}`)}</AppText>
+                        <Icon name={I18nManager.isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={COLORS.surfaceTint} />
+                      </Pressable>
+                    ))}
+                  </Animated.View>
+                )}
               </View>
             )}
 
@@ -956,6 +978,7 @@ const styles = StyleSheet.create({
   progressiveTitle: { color: COLORS.primary },
   progressiveCount: { color: COLORS.textSecondary },
   progressiveWhy: { color: COLORS.textSecondary },
+  setupRows: { gap: SPACING.sm },
   setupRow: {
     minHeight: 48,
     flexDirection: 'row',

@@ -17,7 +17,8 @@ describe('focused UX corrections', () => {
     const dashboard = source('app/(tabs)/dashboard/index.tsx');
     expect(dashboard.indexOf('styles.balanceCard')).toBeLessThan(dashboard.indexOf('styles.progressiveSetup'));
     expect(dashboard).toContain('accessibilityState={{ expanded: setupExpanded }}');
-    expect(dashboard).toContain('setupExpanded && nextSetup.map');
+    expect(dashboard).toContain('setupExpanded && (');
+    expect(dashboard).toContain('nextSetup.map((item) => (');
   });
 
   test('uses one safe bottom inset that includes navigation, centre overlap, device inset, and spacing', () => {

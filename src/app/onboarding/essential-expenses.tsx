@@ -6,12 +6,14 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Platform,
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInUp,
   FadeOut,
@@ -394,7 +396,16 @@ export default function EssentialExpensesReviewScreen() {
         {expenses.map((item, index) => (
           <Animated.View
             key={item.id}
-            entering={reduceMotion ? undefined : FadeInUp.delay(index * 50).duration(400)}
+            entering={reduceMotion
+              ? undefined
+              : (Platform.OS === 'web'
+                ? FadeIn.duration(220)
+                : FadeInUp.duration(220).withInitialValues({
+                    opacity: 0,
+                    transform: [{ translateY: 8 }],
+                  }))
+                  .delay(Math.min(index, 2) * 40)
+                  .easing(Easing.bezier(0.23, 1, 0.32, 1))}
             exiting={reduceMotion ? undefined : FadeOut.duration(250)}
             layout={reduceMotion ? undefined : LinearTransition}
           >

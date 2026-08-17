@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useReducedMotion } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeInLeft, FadeInRight, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppText from '../../../components/Text/AppText';
@@ -12,9 +12,7 @@ import { IncomeDatePicker } from '../../../components/ui/IncomeDatePicker';
 import { GOAL_CATEGORY_KEYS, GOAL_COLOR_KEYS, GOAL_VECTOR_KEYS, GoalCategoryKey, GoalColorKey, GoalVectorKey } from '../../../constants/goals';
 import { COLORS, RADIUS, SPACING } from '../../../constants/theme';
 import { analyzeGoalFeasibility } from '../../../features/financial-engine/goalCalculations';
-import { calculateFinancialProfile } from '../../../features/financial-engine/engine';
-import { calculateActiveFinancialPeriod } from '../../../features/financial-engine/activePeriod';
-import { resolveIncomeTiming } from '../../../features/onboarding/incomeSchedule';
+import { calculateActiveFinancialPlan } from '../../../features/financial-engine/activeFinancialPlan';
 import { useTabContentBottomInset } from '../../../hooks/useTabContentBottomInset';
 import { Goal, GoalPriority, GoalReminderFrequency, useGoalsStore } from '../../../store/goalsStore';
 import { useOnboardingStore } from '../../../store/onboardingStore';
@@ -51,29 +49,11 @@ export default function GoalsScreen() {
   const { answers, debts } = useOnboardingStore();
   const locale = i18n.resolvedLanguage || i18n.language || 'en';
   const currency = answers.currency || 'MAD';
-  const profile = calculateFinancialProfile({ answers, debts });
   const transactions = useTransactionsStore((state) => state.transactions);
   const bills = useBillsStore((state) => state.bills);
   const today = new Date();
-  const nextIncomeDate = resolveIncomeTiming(answers, today).calculationDate;
-  const additionalCommitments = profile.monthlyAnnualExpensesPortion + profile.requiredUpcomingContributions;
-  const capacity = Math.max(0, calculateActiveFinancialPeriod({
-    periodStart: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10),
-    nextIncomeDate,
-    currentAvailableBalance: Number(answers.availableBalance ?? 0),
-    plannedIncome: profile.totalMonthlyIncome,
-    plannedEssential: Number(answers.essentialBillsDue ?? profile.essentialMonthlyExpenses),
-    plannedFlexible: profile.flexibleMonthlyExpenses + Number(answers.upcomingFlexibleSpending || 0),
-    plannedDebt: profile.minimumMonthlyDebtPayments + Number(answers.debtMinimumDue || 0),
-    protectedBuffer: Number(answers.protectedBuffer || 0) + Number(answers.savingsGoalAmount || 0),
-    currency,
-    transactions,
-    commitments: [
-      ...(additionalCommitments + Number(answers.annualExpenseDue || 0) > 0 ? [{ id: 'planned-commitments', amount: additionalCommitments + Number(answers.annualExpenseDue || 0), dueDate: nextIncomeDate, paid: false }] : []),
-      ...bills.filter((bill) => bill.isActive).map((bill) => ({ id: bill.id, amount: bill.amount, dueDate: bill.nextDueDate, paid: bill.paid })),
-    ],
-    now: today,
-  }).safeToSpendTotal);
+  const { activePeriod } = calculateActiveFinancialPlan({ answers, debts, transactions, bills, now: today });
+  const capacity = Math.max(0, activePeriod.safeToSpendTotal);
   const store = useGoalsStore();
   const goalRemindersEnabled = useNotificationPreferencesStore((state) => state.goals);
   const [status, setStatus] = useState<'active' | 'completed' | 'archived'>('active');
@@ -81,6 +61,7 @@ export default function GoalsScreen() {
   const [category, setCategory] = useState<'all' | GoalCategoryKey>('all');
   const [form, setForm] = useState<FormState>(blankForm());
   const [step, setStep] = useState(1);
+  const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
   const [editorOpen, setEditorOpen] = useState(false);
   const [contributionGoal, setContributionGoal] = useState<Goal | null>(null);
   const [contributionAmount, setContributionAmount] = useState('');
@@ -105,11 +86,25 @@ export default function GoalsScreen() {
         ? (b.alreadySaved / b.targetAmount) - (a.alreadySaved / a.targetAmount)
         : priorities.indexOf(a.classification) - priorities.indexOf(b.classification)), [category, sort, status, store.goals]);
 
-  const openCreate = () => { setForm(blankForm()); setStep(1); setEditorOpen(true); };
+  const openCreate = () => { setForm(blankForm()); setStep(1); setStepDirection('forward'); setEditorOpen(true); };
   const openEdit = (goal: Goal) => {
     setForm({ id: goal.id, name: goal.name, description: goal.description || '', target: String(goal.targetAmount), saved: String(goal.alreadySaved), date: goal.targetDate, category: goal.category, vectorKey: goal.vectorKey, colorKey: goal.colorKey, priority: goal.classification, reminder: goal.reminder.frequency, reminderDate: goal.reminder.date || '' });
-    setStep(1); setEditorOpen(true);
+    setStep(1); setStepDirection('forward'); setEditorOpen(true);
   };
+  const changeStep = (nextStep: number) => {
+    setStepDirection(nextStep > step ? 'forward' : 'backward');
+    setStep(nextStep);
+  };
+  const stepEnter = reduceMotion
+    ? FadeIn.duration(160).easing(Easing.ease)
+    : (Platform.OS === 'web'
+      ? FadeIn.duration(200)
+      : (stepDirection === 'forward' ? FadeInRight : FadeInLeft)
+        .duration(200).withInitialValues({
+          opacity: 0,
+          transform: [{ translateX: stepDirection === 'forward' ? 8 : -8 }],
+        }))
+        .easing(Easing.bezier(0.23, 1, 0.32, 1));
   const validateAndSave = async () => {
     const target = parseFinancialAmount(form.target, currency);
     const saved = parseFinancialAmount(form.saved || '0', currency);
@@ -161,16 +156,18 @@ export default function GoalsScreen() {
       })}
     </ScrollView>
 
-    <Modal visible={editorOpen} animationType="slide" onRequestClose={() => setEditorOpen(false)}><SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.modalContent}><AppText variant="sectionTitle" role="heading">{form.id ? t('goals.edit') : t('goals.add')}</AppText><AppText variant="caption">{step}/4</AppText>
+    <Modal visible={editorOpen} animationType={reduceMotion ? 'fade' : 'slide'} onRequestClose={() => setEditorOpen(false)}><SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.modalContent}><AppText variant="sectionTitle" role="heading">{form.id ? t('goals.edit') : t('goals.add')}</AppText><AppText variant="caption">{step}/4</AppText>
+      <Animated.View key={step} entering={stepEnter} style={{ gap: SPACING.md }}>
       {step === 1 && <><AppText variant="bodySemiBold">{t('goals.chooseCategory')}</AppText><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{templates.map((item) => <Chip key={item.category} active={form.category === item.category} label={t(`goals.categories.${item.category}`)} onPress={() => setForm({ ...form, name: t(`goals.categories.${item.category}`), category: item.category, vectorKey: item.vectorKey, colorKey: item.colorKey })} />)}</ScrollView><View style={styles.grid}>{GOAL_CATEGORY_KEYS.map((key) => <Picker key={key} active={form.category === key} label={t(`goals.categories.${key}`)} onPress={() => setForm({ ...form, category: key })} />)}</View></>}
       {step === 2 && <><AppText variant="bodySemiBold">{t('goals.chooseStyle')}</AppText><View style={styles.iconGrid}>{GOAL_VECTOR_KEYS.map((key) => <Pressable key={key} onPress={() => setForm({ ...form, vectorKey: key })} style={[styles.vectorChoice, form.vectorKey === key && styles.selected]} accessibilityRole="radio" accessibilityState={{ checked: form.vectorKey === key }}><Ionicons name={VECTOR_ICONS[key]} size={25} color={COLOR_VALUES[form.colorKey]} /><AppText variant="caption">{t(`goals.vectors.${key}`)}</AppText></Pressable>)}</View><View style={styles.colorGrid}>{GOAL_COLOR_KEYS.map((key) => <Pressable key={key} onPress={() => setForm({ ...form, colorKey: key })} style={[styles.colorChoice, { backgroundColor: COLOR_VALUES[key] }, form.colorKey === key && styles.colorSelected]} accessibilityRole="radio" accessibilityLabel={t(`goals.colors.${key}`)} />)}</View></>}
       {step === 3 && <><AppText variant="bodySemiBold">{t('goals.enterDetails')}</AppText><Input label={t('goals.name')} value={form.name} onChangeText={(name) => setForm({ ...form, name })} /><Input label={t('goals.description')} value={form.description} onChangeText={(description) => setForm({ ...form, description })} multiline /><Input label={`${t('goals.target')} (${currency})`} value={form.target} onChangeText={(target) => setForm({ ...form, target })} keyboardType="decimal-pad" /><Input label={`${t('goals.saved')} (${currency})`} value={form.saved} onChangeText={(saved) => setForm({ ...form, saved })} keyboardType="decimal-pad" /><IncomeDatePicker value={form.date} locale={locale} label={t('goals.date')} onChange={(date) => setForm({ ...form, date })} /></>}
       {step === 4 && <><AppText variant="bodySemiBold">{t('goals.review')}</AppText><AppText variant="inputLabel">{t('goals.priority')}</AppText><View style={styles.chips}>{priorities.map((key) => <Chip key={key} active={form.priority === key} label={t(`goals.priorities.${key}`)} onPress={() => setForm({ ...form, priority: key })} />)}</View><AppText variant="inputLabel">{t('goals.reminder')}</AppText><View style={styles.chips}>{reminders.map((key) => <Chip key={key} active={form.reminder === key} label={t(key === 'none' ? 'goals.noReminder' : `goals.${key}`)} onPress={() => setForm({ ...form, reminder: key })} />)}</View>{form.reminder === 'once' && <IncomeDatePicker value={form.reminderDate} locale={locale} label={t('goals.reminderDate')} onChange={(reminderDate) => setForm({ ...form, reminderDate })} />}</>}
-      <View style={styles.actions}>{step > 1 && <Button title={t('goals.back')} variant="secondary" onPress={() => setStep(step - 1)} style={styles.flexButton} />}{step < 4 ? <Button title={t('goals.next')} onPress={() => setStep(step + 1)} style={styles.flexButton} /> : <Button title={form.id ? t('goals.update') : t('goals.save')} onPress={validateAndSave} style={styles.flexButton} />}</View><Button title={t('common.cancel', 'Cancel')} variant="text" onPress={() => setEditorOpen(false)} /></ScrollView></SafeAreaView></Modal>
+      </Animated.View>
+      <View style={styles.actions}>{step > 1 && <Button title={t('goals.back')} variant="secondary" onPress={() => changeStep(step - 1)} style={styles.flexButton} />}{step < 4 ? <Button title={t('goals.next')} onPress={() => changeStep(step + 1)} style={styles.flexButton} /> : <Button title={form.id ? t('goals.update') : t('goals.save')} onPress={validateAndSave} style={styles.flexButton} />}</View><Button title={t('common.cancel', 'Cancel')} variant="text" onPress={() => setEditorOpen(false)} /></ScrollView></SafeAreaView></Modal>
 
     <Modal visible={Boolean(contributionGoal)} transparent animationType="fade" onRequestClose={() => setContributionGoal(null)}><View style={styles.overlay}><Card style={styles.dialog}><AppText variant="sectionTitle">{t('goals.contribution')}</AppText><Input label={`${t('goals.contributionAmount')} (${currency})`} value={contributionAmount} onChangeText={setContributionAmount} keyboardType="decimal-pad" /><Input label={t('goals.contributionNote')} value={contributionNote} onChangeText={setContributionNote} /><View style={styles.actions}><Button title={t('common.cancel', 'Cancel')} variant="secondary" onPress={() => setContributionGoal(null)} style={styles.flexButton} /><Button title={t('common.add', 'Add')} onPress={contribute} style={styles.flexButton} /></View></Card></View></Modal>
 
-    <Modal visible={Boolean(historyGoal)} animationType="slide" onRequestClose={() => setHistoryGoal(null)}><SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.modalContent}><AppText variant="sectionTitle" role="heading">{t('goals.history')}</AppText>{store.contributions.filter((item) => item.goalId === historyGoal?.id).sort((a, b) => b.contributionDate.localeCompare(a.contributionDate)).map((item) => <Card key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}><View style={styles.grow}><AppText variant="bodySemiBold">{money(item.amount)}</AppText><AppText variant="caption">{new Intl.DateTimeFormat(locale).format(new Date(`${item.contributionDate}T12:00:00`))}{item.note ? ` · ${item.note}` : ''}</AppText></View><Pressable style={styles.touch} onPress={() => { setEditingContributionId(item.id); setContributionAmount(String(item.amount)); setContributionNote(item.note || ''); setContributionGoal(historyGoal); setHistoryGoal(null); }} accessibilityRole="button" accessibilityLabel={t('goals.editContribution')}><Ionicons name="create-outline" size={22} color={COLORS.surfaceTint} /></Pressable><Pressable style={styles.touch} onPress={() => store.deleteContribution(item.id)} accessibilityRole="button" accessibilityLabel={t('goals.deleteContribution')}><Ionicons name="trash-outline" size={22} color={COLORS.error} /></Pressable></Card>)}{!store.contributions.some((item) => item.goalId === historyGoal?.id) && <AppText variant="body">{t('goals.noHistory')}</AppText>}<Button title={t('common.close', 'Close')} onPress={() => setHistoryGoal(null)} /></ScrollView></SafeAreaView></Modal>
+    <Modal visible={Boolean(historyGoal)} animationType={reduceMotion ? 'fade' : 'slide'} onRequestClose={() => setHistoryGoal(null)}><SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.modalContent}><AppText variant="sectionTitle" role="heading">{t('goals.history')}</AppText>{store.contributions.filter((item) => item.goalId === historyGoal?.id).sort((a, b) => b.contributionDate.localeCompare(a.contributionDate)).map((item) => <Card key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}><View style={styles.grow}><AppText variant="bodySemiBold">{money(item.amount)}</AppText><AppText variant="caption">{new Intl.DateTimeFormat(locale).format(new Date(`${item.contributionDate}T12:00:00`))}{item.note ? ` · ${item.note}` : ''}</AppText></View><Pressable style={styles.touch} onPress={() => { setEditingContributionId(item.id); setContributionAmount(String(item.amount)); setContributionNote(item.note || ''); setContributionGoal(historyGoal); setHistoryGoal(null); }} accessibilityRole="button" accessibilityLabel={t('goals.editContribution')}><Ionicons name="create-outline" size={22} color={COLORS.surfaceTint} /></Pressable><Pressable style={styles.touch} onPress={() => store.deleteContribution(item.id)} accessibilityRole="button" accessibilityLabel={t('goals.deleteContribution')}><Ionicons name="trash-outline" size={22} color={COLORS.error} /></Pressable></Card>)}{!store.contributions.some((item) => item.goalId === historyGoal?.id) && <AppText variant="body">{t('goals.noHistory')}</AppText>}<Button title={t('common.close', 'Close')} onPress={() => setHistoryGoal(null)} /></ScrollView></SafeAreaView></Modal>
 
     <Modal visible={Boolean(completedGoal)} transparent animationType="fade"><View style={styles.overlay} accessibilityLiveRegion="assertive"><Card style={styles.dialog}><Ionicons name={VECTOR_ICONS[completedGoal?.vectorKey || 'target']} size={48} color={COLOR_VALUES[completedGoal?.colorKey || 'pocket_blue']} /><AppText variant="sectionTitle" role="heading">{t('goals.completedTitle')}</AppText><AppText variant="body">{t('goals.completedBody', { amount: money(completedGoal?.targetAmount || 0) })}</AppText><Button title={t('goals.createAnother')} onPress={() => { setCompletedGoal(null); openCreate(); }} /><Button title={t('goals.returnGoals')} variant="secondary" onPress={() => setCompletedGoal(null)} /></Card></View></Modal>
     <CelebrationOverlay active={Boolean(completedGoal) && !reduceMotion} onComplete={() => undefined} />

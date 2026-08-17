@@ -38,7 +38,6 @@ import {
   QuestionConfig,
 } from '../../features/onboarding/quizFlow';
 import { useOnboardingStore, DebtInfo } from '../../store/onboardingStore';
-import { getCountries, getSuggestedCurrency } from '../../services/localization/countries';
 import { getLanguageOption } from '../../services/localization/languages';
 
 const VALIDATION_KEYS: Record<string, string> = {
@@ -69,7 +68,6 @@ export default function QuizScreen() {
 
   // Local validation error
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [countrySearch, setCountrySearch] = useState('');
 
   // For Text, Number, Date, Currency inputs
   const [inputValue, setInputValue] = useState('');
@@ -240,35 +238,6 @@ export default function QuizScreen() {
         );
 
       case 'select':
-        if (currentQuestion.id === 'country') {
-          const countries = getCountries(i18n.resolvedLanguage || i18n.language);
-          const query = countrySearch.trim().toLocaleLowerCase(i18n.resolvedLanguage || i18n.language);
-          const visibleCountries = query
-            ? countries.filter(({ code, name }) => code.toLowerCase().includes(query) || name.toLocaleLowerCase().includes(query))
-            : countries;
-          return (
-            <View style={styles.optionsList}>
-              <Input
-                value={countrySearch}
-                onChangeText={setCountrySearch}
-                placeholder={t('onboarding.minimum.country.search')}
-                autoCapitalize="words"
-              />
-              {visibleCountries.map((country) => (
-                <SelectionCard
-                  key={country.code}
-                  label={`${country.name} (${country.code})`}
-                  selected={answers.country === country.code}
-                  onPress={() => {
-                    setAnswer('country', country.code);
-                    setAnswer('currency', getSuggestedCurrency(country.code));
-                  }}
-                  icon={<FlagIcon countryCode={country.code} size={22} />}
-                />
-              ))}
-            </View>
-          );
-        }
         return (
           <View style={styles.optionsList}>
             {currentQuestion.options?.map((option) => {

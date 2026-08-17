@@ -43,6 +43,7 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const scale = useSharedValue(1);
+  const pressedOpacity = useSharedValue(1);
   const reduceMotion = useReducedMotion();
 
   const getButtonStyles = (): any[] => {
@@ -106,25 +107,32 @@ export const Button: React.FC<ButtonProps> = ({
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: scale.value }],
+      opacity: pressedOpacity.value,
     };
   });
 
   const handlePressIn = () => {
-    if (!disabled && !loading && !reduceMotion) {
-      scale.value = withTiming(0.97, {
-        duration: 120,
-        easing: Easing.bezier(0.23, 1, 0.32, 1),
-      });
+    if (disabled || loading) return;
+    if (reduceMotion) {
+      pressedOpacity.value = 0.72;
+      return;
     }
+    scale.value = withTiming(0.97, {
+      duration: 120,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    });
   };
 
   const handlePressOut = () => {
-    if (!disabled && !loading && !reduceMotion) {
-      scale.value = withTiming(1, {
-        duration: 160,
-        easing: Easing.bezier(0.23, 1, 0.32, 1),
-      });
+    if (disabled || loading) return;
+    if (reduceMotion) {
+      pressedOpacity.value = 1;
+      return;
     }
+    scale.value = withTiming(1, {
+      duration: 160,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    });
   };
 
   return (

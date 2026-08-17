@@ -26,7 +26,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#F7F8FC",
+        "backgroundColor": "#1858EB",
         "foregroundImage": "./assets/branding/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false

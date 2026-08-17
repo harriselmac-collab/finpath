@@ -51,10 +51,14 @@ export const SelectionCard: React.FC<SelectionCardProps> = ({
   icon,
 }) => {
   const pressedScale = useSharedValue(1);
+  const pressedOpacity = useSharedValue(1);
   const reduceMotion = useReducedMotion();
 
   const handlePressIn = () => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      pressedOpacity.value = 0.72;
+      return;
+    }
     pressedScale.value = withTiming(0.98, {
       duration: 120,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
@@ -62,7 +66,10 @@ export const SelectionCard: React.FC<SelectionCardProps> = ({
   };
 
   const handlePressOut = () => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      pressedOpacity.value = 1;
+      return;
+    }
     pressedScale.value = withTiming(1, {
       duration: 150,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
@@ -73,6 +80,7 @@ export const SelectionCard: React.FC<SelectionCardProps> = ({
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: pressedScale.value }],
+      opacity: pressedOpacity.value,
     };
   });
 
@@ -200,10 +208,14 @@ export const PressableCard: React.FC<PressableCardProps> = ({
   accessibilityHint,
 }) => {
   const scale = useSharedValue(1);
+  const pressedOpacity = useSharedValue(1);
   const reduceMotion = useReducedMotion();
 
   const handlePressIn = () => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      pressedOpacity.value = 0.72;
+      return;
+    }
     scale.value = withTiming(0.97, {
       duration: 120,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
@@ -211,7 +223,10 @@ export const PressableCard: React.FC<PressableCardProps> = ({
   };
 
   const handlePressOut = () => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      pressedOpacity.value = 1;
+      return;
+    }
     scale.value = withTiming(1, {
       duration: 160,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
@@ -221,6 +236,7 @@ export const PressableCard: React.FC<PressableCardProps> = ({
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: scale.value }],
+      opacity: pressedOpacity.value,
     };
   });
 

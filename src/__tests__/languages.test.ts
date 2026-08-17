@@ -17,7 +17,7 @@ import { incomeScheduleTranslations } from '../constants/translations/incomeSche
 import { minimumOnboardingTranslations } from '../constants/translations/minimumOnboarding';
 import { syncStatusTranslations } from '../constants/translations/syncStatus';
 import { legalDocuments } from '../constants/legalDocuments';
-import { PROGRESSIVE_PROFILE_QUESTIONS } from '../features/onboarding/quizFlow';
+import { PROGRESSIVE_PROFILE_QUESTIONS, QUIZ_QUESTIONS } from '../features/onboarding/quizFlow';
 import en from '../constants/translations/en.json';
 import fr from '../constants/translations/fr.json';
 import ar from '../constants/translations/ar.json';
@@ -34,6 +34,14 @@ describe('supported languages', () => {
     expect(SUPPORTED_LANGUAGES).toHaveLength(9);
     expect(new Set(SUPPORTED_LANGUAGES.map(({ key }) => key)).size).toBe(9);
     expect(SUPPORTED_LANGUAGES.every(({ label, flag }) => label.length > 0 && Array.from(flag).length === 2)).toBe(true);
+  });
+
+  it('offers only fully supported languages during onboarding', () => {
+    const languageQuestion = QUIZ_QUESTIONS.find(({ id }) => id === 'language');
+
+    expect(languageQuestion?.options?.map(({ value }) => value)).toEqual(
+      SUPPORTED_LANGUAGES.map(({ key }) => key),
+    );
   });
 
   it('normalizes regional locales and falls back safely', () => {

@@ -1,10 +1,10 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -27,6 +27,14 @@ export default function WelcomeScreen() {
   }
 
   const currentLanguage = getLanguageOption(i18n.resolvedLanguage || i18n.language);
+  const enterUp = (delay: number) => (Platform.OS === 'web'
+    ? FadeIn.duration(220)
+    : FadeInUp.duration(220).withInitialValues({
+        opacity: 0,
+        transform: [{ translateY: 8 }],
+      }))
+    .delay(delay)
+    .easing(Easing.bezier(0.23, 1, 0.32, 1));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,7 +77,7 @@ export default function WelcomeScreen() {
             <Circle cx="322" cy="181" r="10" fill={COLORS.primary} />
           </Svg>
 
-          <Animated.View entering={FadeInUp.duration(220).delay(90)} style={[styles.metricCard, styles.growthCard]}>
+          <Animated.View entering={enterUp(90)} style={[styles.metricCard, styles.growthCard]}>
             <Ionicons name="trending-up" size={22} color={COLORS.secondary} />
             <View>
               <AppText variant="supporting" style={styles.metricLabel}>
@@ -79,7 +87,7 @@ export default function WelcomeScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInUp.duration(220).delay(140)} style={[styles.metricCard, styles.fundCard]}>
+          <Animated.View entering={enterUp(140)} style={[styles.metricCard, styles.fundCard]}>
             <Ionicons name="shield-checkmark-outline" size={24} color={COLORS.secondary} />
             <View>
               <AppText variant="supporting" style={styles.metricLabel}>
@@ -90,7 +98,7 @@ export default function WelcomeScreen() {
           </Animated.View>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.duration(220).delay(160)} style={styles.copy}>
+        <Animated.View entering={enterUp(160)} style={styles.copy}>
           <AppText variant="displayLgMobile" style={styles.title}>
             {t('welcome.referenceTitle', {
               defaultValue: 'A financial plan built around your real life.',
@@ -103,7 +111,7 @@ export default function WelcomeScreen() {
           </AppText>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.duration(220).delay(210)} style={styles.actions}>
+        <Animated.View entering={enterUp(210)} style={styles.actions}>
           <Button
             title={t('onboarding.entry.continueLocal')}
             onPress={() => router.push('/onboarding/quiz')}

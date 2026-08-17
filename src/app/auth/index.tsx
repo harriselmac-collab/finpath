@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
@@ -40,6 +40,16 @@ const userFacingAuthError = (error: any, t: (key: string, options?: any) => stri
       return t('auth.signInFailed');
   }
 };
+
+const authEnter = (delay = 0) =>
+  (Platform.OS === 'web'
+    ? FadeIn.duration(200)
+    : FadeInDown.duration(200).withInitialValues({
+        opacity: 0,
+        transform: [{ translateY: 8 }],
+      }))
+    .delay(delay)
+    .easing(Easing.bezier(0.23, 1, 0.32, 1));
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -270,7 +280,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Brand */}
-          <Animated.View entering={FadeInDown.duration(500)} style={styles.brandSection}>
+          <Animated.View entering={authEnter()} style={styles.brandSection}>
             <Image
               source={require('../../../assets/branding/app-logo.svg')}
               style={styles.brandLogo}
@@ -280,7 +290,7 @@ export default function AuthScreen() {
           </Animated.View>
 
           {/* Header */}
-          <Animated.View entering={FadeInDown.duration(500).delay(150)} style={styles.header}>
+          <Animated.View entering={authEnter(40)} style={styles.header}>
             <Text style={styles.title}>{t('auth.title')}</Text>
             <Text style={styles.subtitle}>
               {isSignUp ? t('auth.signUpSubtitle') : t('auth.signInSubtitle')}
@@ -288,7 +298,7 @@ export default function AuthScreen() {
           </Animated.View>
 
           {/* Form */}
-          <Animated.View entering={FadeInDown.duration(500).delay(300)} style={styles.form}>
+          <Animated.View entering={authEnter(80)} style={styles.form}>
             <Input
               label={t('auth.email')}
               value={email}

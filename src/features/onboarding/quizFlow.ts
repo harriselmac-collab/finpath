@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SUPPORTED_CURRENCIES } from '../../constants/currencies';
+import { SUPPORTED_LANGUAGES } from '../../services/localization/languages';
 
 export interface QuestionOption {
   value: string;
@@ -22,17 +23,7 @@ export const QUIZ_QUESTIONS: QuestionConfig[] = [
   {
     id: 'language', section: 'localization', titleKey: 'onboarding.minimum.language.title',
     subtitleKey: 'onboarding.minimum.language.subtitle', type: 'select', required: true,
-    options: [
-      { value: 'en', labelKey: 'English' }, { value: 'fr', labelKey: 'Français' },
-      { value: 'ar', labelKey: 'العربية' }, { value: 'es', labelKey: 'Español' },
-      { value: 'de', labelKey: 'Deutsch' }, { value: 'pt', labelKey: 'Português' },
-      { value: 'it', labelKey: 'Italiano' }, { value: 'tr', labelKey: 'Türkçe' },
-      { value: 'zh', labelKey: '中文' },
-    ],
-  },
-  {
-    id: 'country', section: 'localization', titleKey: 'onboarding.minimum.country.title',
-    subtitleKey: 'onboarding.minimum.country.subtitle', type: 'select', required: true,
+    options: SUPPORTED_LANGUAGES.map(({ key, label }) => ({ value: key, labelKey: label })),
   },
   {
     id: 'currency', section: 'localization', titleKey: 'onboarding.minimum.currency.title',

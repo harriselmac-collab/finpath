@@ -1,9 +1,9 @@
 import React from 'react';
-import { I18nManager, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { I18nManager, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeInUp, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppText from '../../../components/Text/AppText';
@@ -75,7 +75,14 @@ export default function PlanScreen() {
     : t('planDetails.tipBalanced');
   const enter = (delay = 0) => reduceMotion
     ? undefined
-    : FadeInUp.duration(220).delay(delay);
+    : (Platform.OS === 'web'
+      ? FadeIn.duration(220)
+      : FadeInUp.duration(220).withInitialValues({
+          opacity: 0,
+          transform: [{ translateY: 8 }],
+        }))
+        .delay(delay)
+        .easing(Easing.bezier(0.23, 1, 0.32, 1));
 
   return (
     <SafeAreaView style={styles.container}>

@@ -4,6 +4,7 @@ import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { useReducedMotion } from 'react-native-reanimated';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import AppText from '../../components/Text/AppText';
 import { TAB_BAR_BASE_HEIGHT } from '../../hooks/useTabContentBottomInset';
@@ -12,6 +13,7 @@ export default function TabLayout() {
   const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const [showAddSheet, setShowAddSheet] = useState(false);
   const bottomInset = insets.bottom;
   const computedHeight = TAB_BAR_BASE_HEIGHT + bottomInset;
@@ -119,7 +121,7 @@ export default function TabLayout() {
       <Modal
         transparent
         visible={showAddSheet}
-        animationType="slide"
+        animationType={reduceMotion ? 'fade' : 'slide'}
         onRequestClose={() => setShowAddSheet(false)}
       >
         <View style={styles.modalOverlay}>

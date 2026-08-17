@@ -20,15 +20,18 @@ supabase/.temp/
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# Metro & Logs
+.metro*
+*.err
+*.out
+.codex-remote-attachments/
 
 # debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# macOS & secrets
 .DS_Store
 *.pem
 

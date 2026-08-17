@@ -20,7 +20,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 const buildCompleteAnswers = () => {
   const answers: Record<string, unknown> = {
     language: 'en',
-    country: 'MA',
     currency: 'MAD',
     availableBalance: 1000,
     nextIncomeDate: '2026-08-15',
@@ -116,7 +115,7 @@ describe('Onboarding Quiz Branching Logic & Validations', () => {
     expect(isMonthlyPlanReady(answers, [], true)).toBe(true);
   });
 
-  test('asks 15-18 meaningful questions without sensitive profile questions', () => {
+  test('asks 14-17 meaningful questions without location or sensitive profile questions', () => {
     const schedules = [
       { incomeFrequency: 'monthly' },
       { incomeFrequency: 'twiceMonthly' },
@@ -126,9 +125,9 @@ describe('Onboarding Quiz Branching Logic & Validations', () => {
 
     schedules.forEach((answers) => {
       const questions = getActiveQuestions(answers);
-      expect(questions.length).toBeGreaterThanOrEqual(15);
-      expect(questions.length).toBeLessThanOrEqual(18);
-      expect(questions.some(({ id }) => ['isMarried', 'hasChildren', 'employmentStatus', 'medicationExpenses'].includes(id))).toBe(false);
+      expect(questions.length).toBeGreaterThanOrEqual(14);
+      expect(questions.length).toBeLessThanOrEqual(17);
+      expect(questions.some(({ id }) => ['country', 'isMarried', 'hasChildren', 'employmentStatus', 'medicationExpenses'].includes(id))).toBe(false);
     });
   });
 
@@ -136,7 +135,7 @@ describe('Onboarding Quiz Branching Logic & Validations', () => {
     const questions = getActiveQuestions({});
 
     expect(getResumeQuestionStep(questions, {}, 26)).toBe(0);
-    expect(getResumeQuestionStep(questions, { language: 'en', country: 'MA' }, 7)).toBe(2);
+    expect(getResumeQuestionStep(questions, { language: 'en' }, 7)).toBe(1);
     expect(getResumeQuestionStep(getActiveQuestions(buildCompleteAnswers()), buildCompleteAnswers(), 7)).toBe(7);
   });
 

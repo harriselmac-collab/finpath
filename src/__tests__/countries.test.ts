@@ -9,6 +9,18 @@ describe('global country selection', () => {
     expect(options.some(({ code }) => code === 'GF')).toBe(true);
   });
 
+  test('bundles a flag for every selectable country and territory', () => {
+    const missingFlags = getCountries('en').filter(({ code }) => {
+      try {
+        require.resolve(`flag-icons/flags/4x3/${code.toLowerCase()}.svg`);
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    expect(missingFlags).toEqual([]);
+  });
+
   test('localizes names and migrates stored names to stable country codes', () => {
     expect(getCountries('ar').find(({ code }) => code === 'MA')?.name).not.toBe('Morocco');
     expect(normalizeCountryCode('Morocco')).toBe('MA');

@@ -179,6 +179,22 @@ describe('Deterministic Financial Profile calculations', () => {
     expect(profile.realAvailableMonthlyBalance).toBe(850);
   });
 
+  test('should use minimal plan totals until detailed expenses and debts are added', () => {
+    const profile = calculateFinancialProfile({
+      answers: {
+        mainIncome: 5000,
+        essentialBillsDue: 2000,
+        upcomingFlexibleSpending: 1000,
+        debtMinimumDue: 500,
+      },
+      debts: [],
+    });
+
+    expect(profile.flexibleMonthlyExpenses).toBe(1000);
+    expect(profile.minimumMonthlyDebtPayments).toBe(500);
+    expect(profile.realAvailableMonthlyBalance).toBe(1500);
+  });
+
   test('should always use current debt inputs instead of reviewed display rows', () => {
     const profile = calculateFinancialProfile({
       answers: {
