@@ -58,13 +58,21 @@ git commit -m "feat: [describe your new feature] (v1.1.0)"
 git push origin main
 ```
 
-### Step C: Trigger Cloud Build on EAS
+### Step C: Build the Release Bundle (.aab)
+
+#### Option 1: Fast Local Build (1–2 minutes, No Queue)
+```powershell
+npm run build:release
+```
+*The `.aab` is generated immediately at `android/app/build/outputs/bundle/release/app-release.aab`.*
+
+#### Option 2: Cloud Build on EAS
 ```powershell
 npx eas-cli build --platform android --profile production
 ```
 
 ### Step D: Upload to Google Play Console
-1. Download the newly built `.aab` from the Expo EAS link.
+1. Grab the `.aab` (from `android/app/build/outputs/bundle/release/app-release.aab` or the EAS link).
 2. In Google Play Console, go to **Production** (or **Internal testing**).
 3. Click **Create new release**, upload the `.aab`, write release notes, and click **Save and publish**.
 
