@@ -56,6 +56,8 @@
     "serviceUnavailable": "Authentication is currently unavailable. Please try again later.",
     "signInFailed": "Sign-in failed. Please check your details and try again.",
     "googleTokenMissing": "Google did not return a valid sign-in token.",
+    "googleDeveloperError": "Google Sign-In configuration issue. Ensure your Android SHA-1 fingerprint is registered in Google Cloud Console and Supabase.",
+    "googlePlayServicesError": "Google Play Services is not available or outdated on this device.",
     "verificationTitle": "Verification sent",
     "verificationMessage": "Check your email to verify your account before signing in.",
     "simulationButton": "Development simulation",

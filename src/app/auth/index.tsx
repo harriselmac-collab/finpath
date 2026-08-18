@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../constants/theme';
@@ -23,11 +23,35 @@ import { captureLocalFinancialData, hasLocalFinancialData, migrateLocalDataToAcc
 import { parseAuthCallback } from '../../services/auth/recovery';
 
 const userFacingAuthError = (error: any, t: (key: string, options?: any) => string) => {
-  switch (error?.code) {
+  const code = String(error?.code || error?.status || '');
+  const message = error?.message || '';
+
+  if (
+    code === '12501' ||
+    code === statusCodes?.SIGN_IN_CANCELLED ||
+    code === 'SIGN_IN_CANCELLED' ||
+    message.toLowerCase().includes('cancel')
+  ) {
+    return '';
+  }
+
+  if (code === '10' || code === 'DEVELOPER_ERROR' || message.includes('DEVELOPER_ERROR')) {
+    return t('auth.googleDeveloperError', {
+      defaultValue: 'Google Sign-In configuration issue. Ensure your Android SHA-1 fingerprint is registered in Google Cloud Console and Supabase.',
+    });
+  }
+
+  if (code === '2' || code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE || code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+    return t('auth.googlePlayServicesError', {
+      defaultValue: 'Google Play Services is not available or outdated on this device.',
+    });
+  }
+
+  switch (code) {
     case 'invalid_credentials':
       return t('auth.invalidCredentials', { defaultValue: 'The email or password is incorrect.' });
     case 'email_not_confirmed':
-      return t('auth.emailNotConfirmed', { defaultValue: 'Confirm your email address before signing in.' });
+      return t('auth.emailNotConfirmed', { defaultValue: 'Confirm your email address before signing in (or disable "Confirm email" in Supabase).' });
     case 'user_already_exists':
     case 'email_exists':
       return t('auth.accountExists', { defaultValue: 'An account already exists for this email address.' });
@@ -37,7 +61,7 @@ const userFacingAuthError = (error: any, t: (key: string, options?: any) => stri
     case 'over_request_rate_limit':
       return t('auth.rateLimited', { defaultValue: 'Too many attempts. Wait a moment and try again.' });
     default:
-      return t('auth.signInFailed');
+      return message || t('auth.signInFailed', { defaultValue: 'Sign-in failed. Please check your details and try again.' });
   }
 };
 
@@ -62,7 +86,8 @@ export default function AuthScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const setSession = useSessionStore((state) => state.setSession);
-  const callbackUrl = Linking.useLinkingURL();
+  const linkingUrl = Linking.useLinkingURL();
+  const callbackUrl = linkingUrl || (typeof window !== 'undefined' ? window.location.href : null);
   const handledCallbackUrl = useRef<string | null>(null);
 
   const finishAuthentication = useCallback((session: Parameters<typeof setSession>[0], localSnapshot: ReturnType<typeof captureLocalFinancialData>) => {
@@ -92,7 +117,13 @@ export default function AuthScreen() {
 
   React.useEffect(() => {
     const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-    if (webClientId) GoogleSignin.configure({ webClientId });
+    if (webClientId && Platform.OS !== 'web') {
+      GoogleSignin.configure({
+        webClientId,
+        offlineAccess: true,
+        scopes: ['profile', 'email'],
+      });
+    }
   }, []);
 
   React.useEffect(() => {
@@ -148,13 +179,30 @@ export default function AuthScreen() {
     }
 
     try {
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      
-      if (userInfo.data?.idToken) {
+      if (Platform.OS === 'web') {
+        const { error: oAuthError } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: Linking.createURL('auth'),
+          },
+        });
+        if (oAuthError) throw oAuthError;
+        return;
+      }
+
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+
+      if ((response as any)?.type === 'cancelled') {
+        return;
+      }
+
+      const idToken = (response as any)?.data?.idToken || (response as any)?.idToken;
+
+      if (idToken) {
         const { data, error: signInError } = await supabase.auth.signInWithIdToken({
           provider: 'google',
-          token: userInfo.data.idToken,
+          token: idToken,
         });
 
         if (signInError) {
@@ -165,10 +213,13 @@ export default function AuthScreen() {
           finishAuthentication(data.session, localSnapshot);
         }
       } else {
-        throw new Error(t('auth.googleTokenMissing'));
+        throw new Error(t('auth.googleTokenMissing', { defaultValue: 'Google did not return a valid sign-in token.' }));
       }
     } catch (err: any) {
-      setError(userFacingAuthError(err, t));
+      const errorMsg = userFacingAuthError(err, t);
+      if (errorMsg) {
+        setError(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -177,6 +228,9 @@ export default function AuthScreen() {
   const handleAuth = async () => {
     const localSnapshot = captureLocalFinancialData();
     const normalizedEmail = email.trim().toLowerCase();
+
+    setError('');
+
     if (!normalizedEmail || !password) {
       setError(t('auth.requiredFields'));
       return;
@@ -194,7 +248,6 @@ export default function AuthScreen() {
       return;
     }
 
-    setError('');
     setLoading(true);
 
     if (!isSupabaseConfigured) {
@@ -218,9 +271,22 @@ export default function AuthScreen() {
         if (data.session) {
           finishAuthentication(data.session, localSnapshot);
         } else {
-          Alert.alert(t('auth.verificationTitle'), t('auth.verificationMessage'), [
-            { text: t('common.continue'), onPress: () => setIsSignUp(false) },
-          ]);
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
+
+          if (!signInError && signInData.session) {
+            finishAuthentication(signInData.session, localSnapshot);
+          } else {
+            Alert.alert(
+              t('auth.verificationTitle', { defaultValue: 'Verification sent' }),
+              t('auth.verificationMessage', { defaultValue: 'Check your email to verify your account before signing in, or disable "Confirm email" in Supabase Auth settings to skip verification.' }),
+              [
+                { text: t('common.continue', { defaultValue: 'Continue' }), onPress: () => setIsSignUp(false) },
+              ],
+            );
+          }
         }
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -237,7 +303,10 @@ export default function AuthScreen() {
         }
       }
     } catch (err: any) {
-      setError(userFacingAuthError(err, t));
+      const errorMsg = userFacingAuthError(err, t);
+      if (errorMsg) {
+        setError(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -302,16 +371,22 @@ export default function AuthScreen() {
             <Input
               label={t('auth.email')}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (error) setError('');
+              }}
               placeholder="name@example.com"
               keyboardType="email-address"
-              error={error && !email ? t('auth.emailRequired') : undefined}
+              error={error && !email.trim() ? t('auth.emailRequired') : undefined}
             />
 
             <Input
               label={t('auth.password')}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (error) setError('');
+              }}
               placeholder="••••••••"
               secureTextEntry
               error={error && !password ? t('auth.passwordRequired') : undefined}
@@ -335,7 +410,10 @@ export default function AuthScreen() {
                 <Input
                   label={t('auth.confirmPassword')}
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    if (error) setError('');
+                  }}
                   placeholder="••••••••"
                   secureTextEntry
                   error={error && password !== confirmPassword ? t('auth.passwordMismatch') : undefined}

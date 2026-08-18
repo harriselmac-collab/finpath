@@ -56,6 +56,8 @@
     "serviceUnavailable": "L’authentification est actuellement indisponible. Réessayez plus tard.",
     "signInFailed": "La connexion a échoué. Vérifiez vos informations et réessayez.",
     "googleTokenMissing": "Google n’a pas renvoyé de jeton de connexion valide.",
+    "googleDeveloperError": "Erreur de configuration Google Sign-In. Assurez-vous que l'empreinte SHA-1 est enregistrée dans Google Cloud Console et Supabase.",
+    "googlePlayServicesError": "Les services Google Play ne sont pas disponibles ou sont obsolètes sur cet appareil.",
     "verificationTitle": "Vérification envoyée",
     "verificationMessage": "Consultez votre messagerie pour vérifier votre compte avant de vous connecter.",
     "simulationButton": "Simulation de développement",

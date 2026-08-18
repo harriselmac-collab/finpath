@@ -56,6 +56,8 @@
     "serviceUnavailable": "خدمة تسجيل الدخول غير متاحة حالياً. يرجى المحاولة لاحقاً.",
     "signInFailed": "فشل تسجيل الدخول. تحقق من بياناتك وحاول مرة أخرى.",
     "googleTokenMissing": "لم تُرجع Google رمز تسجيل دخول صالحاً.",
+    "googleDeveloperError": "خطأ في تهيئة تسجيل الدخول بواسطة Google. يرجى التأكد من تسجيل بصمة SHA-1 في Google Cloud Console و Supabase.",
+    "googlePlayServicesError": "خدمات Google Play غير متوفرة أو قديمة على هذا الجهاز.",
     "verificationTitle": "تم إرسال رسالة التحقق",
     "verificationMessage": "تحقق من بريدك الإلكتروني لتأكيد حسابك قبل تسجيل الدخول.",
     "simulationButton": "محاكاة التطوير",
