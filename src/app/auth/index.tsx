@@ -87,7 +87,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const setSession = useSessionStore((state) => state.setSession);
   const linkingUrl = Linking.useLinkingURL();
-  const callbackUrl = linkingUrl || (typeof window !== 'undefined' ? window.location.href : null);
+  const callbackUrl = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location?.href : linkingUrl;
   const handledCallbackUrl = useRef<string | null>(null);
 
   const finishAuthentication = useCallback((session: Parameters<typeof setSession>[0], localSnapshot: ReturnType<typeof captureLocalFinancialData>) => {
@@ -190,6 +190,11 @@ export default function AuthScreen() {
         return;
       }
 
+      GoogleSignin.configure({
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+        offlineAccess: true,
+        scopes: ['profile', 'email'],
+      });
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await GoogleSignin.signIn();
 
