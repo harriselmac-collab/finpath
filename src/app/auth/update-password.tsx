@@ -20,6 +20,8 @@ export default function UpdatePasswordScreen() {
   const [sessionReady, setSessionReady] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -93,8 +95,48 @@ export default function UpdatePasswordScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>{t('auth.updatePasswordTitle', 'Choose a new password')}</Text>
         <Text style={styles.subtitle}>{t('auth.updatePasswordSubtitle', 'Use a unique password you do not use for another account.')}</Text>
-        <Input label={t('auth.password')} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" />
-        <Input label={t('auth.confirmPassword')} value={confirmation} onChangeText={setConfirmation} secureTextEntry autoCapitalize="none" />
+        <Input
+          label={t('auth.password')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          trailingIcon={
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? t('auth.hidePassword', 'Hide password') : t('auth.showPassword', 'Show password')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+          }
+        />
+        <Input
+          label={t('auth.confirmPassword')}
+          value={confirmation}
+          onChangeText={setConfirmation}
+          secureTextEntry={!showConfirmation}
+          autoCapitalize="none"
+          trailingIcon={
+            <TouchableOpacity
+              onPress={() => setShowConfirmation(!showConfirmation)}
+              accessibilityRole="button"
+              accessibilityLabel={showConfirmation ? t('auth.hidePassword', 'Hide password') : t('auth.showPassword', 'Show password')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={showConfirmation ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+          }
+        />
         {!!error && <Text style={styles.error}>{error}</Text>}
         <Button
           title={t('auth.updatePasswordAction', 'Update password')}

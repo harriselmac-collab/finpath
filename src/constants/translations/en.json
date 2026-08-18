@@ -62,7 +62,9 @@
     "verificationMessage": "Check your email to verify your account before signing in.",
     "simulationButton": "Development simulation",
     "simulationTitle": "Simulated development session",
-    "simulationNotice": "This is a local development session. It is not connected to a real account and data is not synchronized."
+    "simulationNotice": "This is a local development session. It is not connected to a real account and data is not synchronized.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "onboarding": {
     "progress": "Question {{current}} of {{total}}",

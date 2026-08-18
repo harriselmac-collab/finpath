@@ -62,7 +62,9 @@
     "verificationMessage": "Consultez votre messagerie pour vérifier votre compte avant de vous connecter.",
     "simulationButton": "Simulation de développement",
     "simulationTitle": "Session de développement simulée",
-    "simulationNotice": "Il s’agit d’une session locale de développement. Elle n’est liée à aucun compte réel et les données ne sont pas synchronisées."
+    "simulationNotice": "Il s’agit d’une session locale de développement. Elle n’est liée à aucun compte réel et les données ne sont pas synchronisées.",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
   },
   "onboarding": {
     "progress": "Question {{current}} sur {{total}}",

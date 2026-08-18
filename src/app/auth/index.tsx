@@ -83,6 +83,8 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const setSession = useSessionStore((state) => state.setSession);
@@ -221,6 +223,7 @@ export default function AuthScreen() {
         throw new Error(t('auth.googleTokenMissing', { defaultValue: 'Google did not return a valid sign-in token.' }));
       }
     } catch (err: any) {
+      console.error('[GoogleAuth Error]', err);
       const errorMsg = userFacingAuthError(err, t);
       if (errorMsg) {
         setError(errorMsg);
@@ -308,6 +311,7 @@ export default function AuthScreen() {
         }
       }
     } catch (err: any) {
+      console.error('[EmailAuth Error]', err);
       const errorMsg = userFacingAuthError(err, t);
       if (errorMsg) {
         setError(errorMsg);
@@ -393,8 +397,23 @@ export default function AuthScreen() {
                 if (error) setError('');
               }}
               placeholder="••••••••"
-              secureTextEntry
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
               error={error && !password ? t('auth.passwordRequired') : undefined}
+              trailingIcon={
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? t('auth.hidePassword', 'Hide password') : t('auth.showPassword', 'Show password')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={COLORS.textSecondary}
+                  />
+                </TouchableOpacity>
+              }
             />
 
             {!isSignUp && (
@@ -420,8 +439,23 @@ export default function AuthScreen() {
                     if (error) setError('');
                   }}
                   placeholder="••••••••"
-                  secureTextEntry
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
                   error={error && password !== confirmPassword ? t('auth.passwordMismatch') : undefined}
+                  trailingIcon={
+                    <TouchableOpacity
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showConfirmPassword ? t('auth.hidePassword', 'Hide password') : t('auth.showPassword', 'Show password')}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={20}
+                        color={COLORS.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  }
                 />
               </Animated.View>
             )}

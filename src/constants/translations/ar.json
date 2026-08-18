@@ -62,7 +62,9 @@
     "verificationMessage": "تحقق من بريدك الإلكتروني لتأكيد حسابك قبل تسجيل الدخول.",
     "simulationButton": "محاكاة التطوير",
     "simulationTitle": "جلسة تطوير تجريبية",
-    "simulationNotice": "هذه جلسة تطوير محلية وليست مرتبطة بحساب حقيقي، ولا تتم مزامنة البيانات."
+    "simulationNotice": "هذه جلسة تطوير محلية وليست مرتبطة بحساب حقيقي، ولا تتم مزامنة البيانات.",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور"
   },
   "onboarding": {
     "progress": "السؤال {{current}} من {{total}}",

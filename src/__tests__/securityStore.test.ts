@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, jest } from '@jest/globals';
+import { useSecurityStore } from '../store/securityStore';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
@@ -16,8 +17,6 @@ jest.mock('expo-local-authentication', () => ({
     IRIS: 3,
   },
 }));
-
-import { useSecurityStore } from '../store/securityStore';
 
 describe('Security Store & App Lock', () => {
   beforeEach(() => {
