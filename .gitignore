@@ -44,6 +44,10 @@ yarn-error.*
 
 example
 
+# IDE files
+.idea/
+*.iml
+
 # generated native folders
 /ios
 /android
