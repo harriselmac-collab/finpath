@@ -15,10 +15,13 @@ const source = (path: string) => readFileSync(resolve(__dirname, '..', path), 'u
 describe('focused UX corrections', () => {
   test('places the safe-to-spend result before expandable optional setup', () => {
     const dashboard = source('app/(tabs)/dashboard/index.tsx');
-    expect(dashboard.indexOf('styles.balanceCard')).toBeLessThan(dashboard.indexOf('styles.progressiveSetup'));
-    expect(dashboard).toContain('accessibilityState={{ expanded: setupExpanded }}');
-    expect(dashboard).toContain('setupExpanded && (');
-    expect(dashboard).toContain('nextSetup.map((item) => (');
+    const progressiveSetup = source('components/dashboard/DashboardProgressiveSetup.tsx');
+    const balanceIndex = dashboard.indexOf('styles.balanceCard') !== -1 ? dashboard.indexOf('styles.balanceCard') : dashboard.indexOf('DashboardBalanceCard');
+    const setupIndex = dashboard.indexOf('styles.progressiveSetup') !== -1 ? dashboard.indexOf('styles.progressiveSetup') : dashboard.indexOf('DashboardProgressiveSetup');
+    expect(balanceIndex).toBeLessThan(setupIndex);
+    expect(progressiveSetup).toContain('accessibilityState={{ expanded: setupExpanded }}');
+    expect(progressiveSetup).toContain('setupExpanded && (');
+    expect(progressiveSetup).toContain('nextSetup.map((item) => (');
   });
 
   test('uses one safe bottom inset that includes navigation, centre overlap, device inset, and spacing', () => {
