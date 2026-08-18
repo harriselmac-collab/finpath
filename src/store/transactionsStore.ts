@@ -23,6 +23,7 @@ export interface Transaction {
   updatedAt: string;
   ownerId: string;
   syncState: SyncState;
+  receiptUri?: string;
 }
 
 export const migrateTransactionsState = (persistedState: any) => {

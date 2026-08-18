@@ -12,6 +12,9 @@ import { COLORS } from '../constants/theme';
 import { initializeThemePreference, syncSystemTheme } from '../services/theme';
 import { useSessionStore } from '../store/sessionStore';
 import { isSupabaseConfigured, supabase } from '../services/supabase/supabaseClient';
+import { useSecurityStore } from '../store/securityStore';
+import { AppLockOverlay } from '../components/security/AppLockOverlay';
+import { OfflineSyncBanner } from '../components/common/OfflineSyncBanner';
 
 // Prevent splash screen from auto-hiding until assets are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -112,11 +115,19 @@ export default function RootLayout() {
     loadAssets();
   }, []);
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      useSecurityStore.getState().handleAppStateChange(nextState);
+    });
+    return () => subscription.remove();
+  }, []);
+
   if (authLoading) return null;
 
   return (
     <SafeAreaProvider>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <OfflineSyncBanner />
       <Stack
         key={colorScheme ?? 'light'}
         screenOptions={{
@@ -146,6 +157,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile/legal/financial-disclaimer" />
         <Stack.Screen name="profile/legal/licenses" />
       </Stack>
+      <AppLockOverlay />
     </SafeAreaProvider>
   );
 }

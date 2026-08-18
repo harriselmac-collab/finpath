@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { isSupabaseConfigured, supabase } from '../../services/supabase/supabaseClient';
 import { useSessionStore } from '../../store/sessionStore';
+import { useSecurityStore } from '../../store/securityStore';
 
 export default function SecurityScreen() {
   const router = useRouter();
@@ -17,6 +18,25 @@ export default function SecurityScreen() {
   const user = useSessionStore((state) => state.user);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  const isBiometricsEnabled = useSecurityStore((state) => state.isBiometricsEnabled);
+  const biometryType = useSecurityStore((state) => state.biometryType);
+  const checkBiometricsSupport = useSecurityStore((state) => state.checkBiometricsSupport);
+  const setBiometricsEnabled = useSecurityStore((state) => state.setBiometricsEnabled);
+
+  useEffect(() => {
+    void checkBiometricsSupport();
+  }, [checkBiometricsSupport]);
+
+  const handleToggleBiometrics = async (value: boolean) => {
+    const success = await setBiometricsEnabled(value);
+    if (!success && value) {
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('settings.security.biometricsFailed', 'Biometrics could not be enabled. Please ensure your device has biometrics configured.'),
+      );
+    }
+  };
 
   const handlePasswordChange = async () => {
     if (!isSupabaseConfigured || !user?.email) {
@@ -83,6 +103,35 @@ export default function SecurityScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Biometric App Lock */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionHeader}>{t('settings.security.biometricsHeader', 'App Lock')}</Text>
+          <View style={styles.actionRow}>
+            <View style={styles.actionLeft}>
+              <Ionicons
+                name={biometryType === 'Face ID' ? 'scan-outline' : 'finger-print-outline'}
+                size={22}
+                color={COLORS.primary}
+                style={styles.actionIcon}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actionTitle}>
+                  {t('settings.security.biometricsTitle', { type: biometryType, defaultValue: `Require ${biometryType}` })}
+                </Text>
+                <Text style={styles.actionDesc}>
+                  {t('settings.security.biometricsDesc', 'Protect your financial plan and transactions when switching apps.')}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isBiometricsEnabled}
+              onValueChange={handleToggleBiometrics}
+              trackColor={{ false: COLORS.outlineVariant, true: COLORS.primary }}
+              thumbColor={COLORS.surfaceContainerLowest}
+            />
+          </View>
+        </Card>
+
         {!user && (
           <Card style={styles.sectionCard}>
             <Text style={styles.actionTitle}>{t('common.signInRequired', 'Sign in required')}</Text>

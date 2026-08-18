@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 
 import AppText from '../components/Text/AppText';
 import { Button, Input } from '../components/ui';
@@ -28,7 +30,48 @@ export default function TransactionFormScreen() {
   const [amount, setAmount] = useState(existing ? String(existing.amount) : '');
   const [type, setType] = useState<TransactionType>(existing?.type || initialType);
   const [category, setCategory] = useState(existing?.category || (initialType === 'income' ? 'Income' : 'Groceries'));
-  const isDirty = Boolean(name.trim() || amount.trim() || category !== (initialType === 'income' ? 'Income' : 'Groceries') || type !== initialType);
+  const [receiptUri, setReceiptUri] = useState<string | undefined>(existing?.receiptUri);
+  const isDirty = Boolean(name.trim() || amount.trim() || category !== (initialType === 'income' ? 'Income' : 'Groceries') || type !== initialType || receiptUri !== existing?.receiptUri);
+
+  const handlePickReceipt = () => {
+    Alert.alert(
+      t('transactions.attachReceipt', 'Attach Receipt'),
+      t('transactions.chooseSource', 'Choose a source for your receipt photo:'),
+      [
+        {
+          text: t('transactions.camera', 'Take Photo'),
+          onPress: async () => {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) {
+              Alert.alert(t('common.error', 'Error'), t('transactions.cameraPermissionRequired', 'Camera permission is required to take photos of receipts.'));
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              quality: 0.8,
+              allowsEditing: true,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              setReceiptUri(result.assets[0].uri);
+            }
+          },
+        },
+        {
+          text: t('transactions.gallery', 'Choose from Gallery'),
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.8,
+              allowsEditing: true,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              setReceiptUri(result.assets[0].uri);
+            }
+          },
+        },
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+      ],
+    );
+  };
 
   const close = () => {
     if (!isDirty) return router.back();
@@ -71,6 +114,7 @@ export default function TransactionFormScreen() {
       category: category.trim() || t(`transactions.filters.${type}`, type),
       date: now.toLocaleDateString(locale, { month: 'short', day: 'numeric' }),
       timeGroup: now.toLocaleDateString(locale, { month: 'long' }),
+      receiptUri,
     };
     if (existing) updateTransaction(existing.id, values);
     else addTransaction(values);
@@ -105,6 +149,37 @@ export default function TransactionFormScreen() {
             ))}
           </View>
           <Input label={t('transactions.categoryLabel', 'Category')} value={category} onChangeText={setCategory} placeholder={t('transactions.categoryPlaceholder', 'e.g. Utilities or Salary')} />
+          
+          {/* Receipt Attachment Section */}
+          <View style={styles.receiptSection}>
+            <AppText variant="inputLabel" style={styles.label}>{t('transactions.receiptLabel', 'Receipt / Bill Photo')}</AppText>
+            {receiptUri ? (
+              <View style={styles.receiptPreviewWrapper}>
+                <Image source={{ uri: receiptUri }} style={styles.receiptPreview} contentFit="cover" />
+                <Pressable
+                  onPress={() => setReceiptUri(undefined)}
+                  style={styles.removeReceiptBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('transactions.removeReceipt', 'Remove receipt')}
+                >
+                  <Ionicons name="close-circle" size={26} color={COLORS.error} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={handlePickReceipt}
+                style={styles.attachReceiptButton}
+                accessibilityRole="button"
+                accessibilityLabel={t('transactions.attachReceipt', 'Attach Receipt')}
+              >
+                <Ionicons name="camera-outline" size={22} color={COLORS.primary} />
+                <AppText variant="bodyMedium" style={styles.attachReceiptText}>
+                  {t('transactions.attachReceiptBtn', 'Attach Receipt or Photo')}
+                </AppText>
+              </Pressable>
+            )}
+          </View>
+
           <Button title={t('transactions.saveBtn', 'Save Transaction')} onPress={save} style={styles.saveButton} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -126,5 +201,44 @@ const styles = StyleSheet.create({
   typeButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryContainer },
   typeText: { color: COLORS.textSecondary, textTransform: 'capitalize' },
   typeTextActive: { color: COLORS.onPrimaryContainer },
+  receiptSection: {
+    marginVertical: SPACING.sm,
+  },
+  attachReceiptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: COLORS.outline,
+    backgroundColor: COLORS.surfaceContainerLow,
+  },
+  attachReceiptText: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  receiptPreviewWrapper: {
+    position: 'relative',
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    height: 140,
+    backgroundColor: COLORS.surfaceContainerLow,
+  },
+  receiptPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  removeReceiptBtn: {
+    position: 'absolute',
+    top: SPACING.xs,
+    right: SPACING.xs,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: RADIUS.round,
+  },
   saveButton: { width: '100%', marginTop: SPACING.sm },
 });

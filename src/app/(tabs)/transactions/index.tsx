@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../../../constants/theme';
+import { Image } from 'expo-image';
+import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../../constants/theme';
 import { Card } from '../../../components/ui/Card';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
@@ -31,6 +33,7 @@ interface TransactionItem {
   category: string;
   date: string;
   timeGroup: string;
+  receiptUri?: string;
 }
 
 export default function TransactionsScreen() {
@@ -53,6 +56,7 @@ export default function TransactionsScreen() {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'essential' | 'flexible' | 'debt' | 'savings' | 'refund' | 'transfer'>('all');
   const [quickInput, setQuickInput] = useState('');
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+  const [previewReceiptUri, setPreviewReceiptUri] = useState<string | null>(null);
   const chipScrollRef = useRef<ScrollView>(null);
 
   const handleQuickAdd = () => {
@@ -63,7 +67,7 @@ export default function TransactionsScreen() {
     }
 
     const now = new Date();
-const newTx: Omit<TransactionItem, 'id'> = {
+    const newTx: Omit<TransactionItem, 'id'> = {
       name: parsed.name,
       amount: parsed.amount,
       type: parsed.type,
@@ -82,8 +86,8 @@ const newTx: Omit<TransactionItem, 'id'> = {
       t('transactions.deleteMessage', 'This transaction will be permanently removed.'),
       [
         { text: t('common.cancel', 'Cancel'), style: 'cancel' },
-        { text: t('transactions.delete', 'Delete'), style: 'destructive', onPress: () => removeTransaction(id) }
-      ]
+        { text: t('transactions.delete', 'Delete'), style: 'destructive', onPress: () => removeTransaction(id) },
+      ],
     );
   };
 
@@ -272,6 +276,17 @@ const newTx: Omit<TransactionItem, 'id'> = {
                               </AppText>
                             </View>
                             <AppText variant="caption" style={styles.txDate}>{tx.date}</AppText>
+                            {Boolean(tx.receiptUri) && (
+                              <TouchableOpacity
+                                onPress={() => setPreviewReceiptUri(tx.receiptUri || null)}
+                                style={styles.receiptChip}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('transactions.viewReceipt', 'View receipt')}
+                              >
+                                <Ionicons name="receipt-outline" size={12} color={COLORS.primary} />
+                                <AppText variant="caption" style={styles.receiptChipText}>{t('transactions.receipt', 'Receipt')}</AppText>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         </View>
                         <View style={styles.txAmountSec}>
@@ -291,6 +306,28 @@ const newTx: Omit<TransactionItem, 'id'> = {
           </View>
         )}
       </ScrollView>
+
+      {/* Receipt Full Preview Modal */}
+      <Modal
+        visible={Boolean(previewReceiptUri)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewReceiptUri(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setPreviewReceiptUri(null)}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <AppText variant="bodySemiBold" style={styles.modalTitle}>{t('transactions.receiptPreview', 'Receipt Photo')}</AppText>
+              <TouchableOpacity onPress={() => setPreviewReceiptUri(null)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+            {previewReceiptUri && (
+              <Image source={{ uri: previewReceiptUri }} style={styles.modalImage} contentFit="contain" />
+            )}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -365,34 +402,29 @@ const styles = StyleSheet.create({
   },
   tabItemActive: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    ...SHADOWS.sm,
   },
   tabText: {
-    ...TYPOGRAPHY.labelSm,
     color: COLORS.textSecondary,
-    fontWeight: '600',
   },
   tabTextActive: {
-    color: COLORS.textPrimary,
+    color: COLORS.primary,
     fontWeight: '700',
   },
   chipScroll: {
-    marginBottom: SPACING.xs,
+    maxHeight: 40,
   },
   chipScrollContent: {
-    paddingHorizontal: SPACING.xs,
+    paddingRight: SPACING.lg,
   },
   chipRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
   chip: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.surfaceContainerLow,
+    backgroundColor: COLORS.surfaceContainer,
     borderWidth: 1,
     borderColor: COLORS.outlineVariant,
   },
@@ -486,5 +518,52 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
+  },
+  receiptChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: RADIUS.xs,
+    backgroundColor: COLORS.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+  },
+  receiptChipText: {
+    fontSize: 10,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    color: COLORS.textPrimary,
+  },
+  modalCloseBtn: {
+    padding: SPACING.xs,
+  },
+  modalImage: {
+    width: '100%',
+    height: 320,
+    borderRadius: RADIUS.md,
   },
 });
